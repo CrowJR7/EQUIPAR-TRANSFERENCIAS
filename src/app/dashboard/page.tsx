@@ -1,6 +1,9 @@
 import { createClient } from '@/utils/supabase/server'
 import { DashboardClient } from './components/DashboardClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -32,8 +35,24 @@ export default async function DashboardPage() {
     recebendoQuery = recebendoQuery.eq('destino_loja_id', profile.loja_id)
   }
 
-  const { data: enviando } = await enviandoQuery
-  const { data: recebendo } = await recebendoQuery
+  // Fetch all rows bypassing the 1000 limit
+  async function fetchAll(query: any) {
+    let allData: any[] = []
+    let currentFrom = 0
+    const step = 999
+    
+    while (true) {
+      const { data, error } = await query.range(currentFrom, currentFrom + step)
+      if (error || !data || data.length === 0) break
+      allData = allData.concat(data)
+      if (data.length <= step) break
+      currentFrom += step + 1
+    }
+    return allData
+  }
+
+  const enviando = await fetchAll(enviandoQuery)
+  const recebendo = profile?.role === 'admin' ? [] : await fetchAll(recebendoQuery)
 
   return (
     <DashboardClient 

@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { LogOut, Bell } from 'lucide-react'
+import { LogOut, ArrowRightLeft } from 'lucide-react'
 import Image from 'next/image'
 
 export default async function DashboardLayout({
@@ -22,40 +22,52 @@ export default async function DashboardLayout({
     .eq('id', user.id)
     .single()
 
-  let headerColor = "bg-blue-700"
-  if (profile?.role === 'admin') headerColor = "bg-purple-700"
-  else if (profile?.lojas?.nome === 'GOLD') headerColor = "bg-amber-500"
-  else if (profile?.lojas?.nome === 'ONIX') headerColor = "bg-slate-800"
-  else if (profile?.lojas?.nome === 'SORS') headerColor = "bg-teal-700"
-  
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className={`${headerColor} shadow-md sticky top-0 z-40 transition-colors duration-300`}>
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image src="/logo.png" alt="Equipar Logo" width={160} height={50} className="object-contain mr-2" />
-            <div className="hidden sm:block h-8 w-px bg-slate-700"></div>
-            <h1 className="text-xl font-[Bebas_Neue] text-white tracking-wider mt-1 hidden sm:block uppercase">
-              {profile?.role === 'admin' ? 'ADM TOTAL' : `LOJA ${profile?.lojas?.nome || 'NÃO VINCULADA'}`}
-            </h1>
+    <div className="flex flex-col h-screen bg-[#f8f9fa] overflow-hidden font-sans">
+      {/* Unified Top Navigation */}
+      <header className="h-20 bg-primary text-white flex items-center justify-between px-6 md:px-10 shrink-0 sticky top-0 z-20 shadow-md">
+        {/* Left: Logo & Nav */}
+        <div className="flex items-center gap-8">
+          <Image src="/logo.png" alt="Equipar Logo" width={140} height={40} className="object-contain" priority />
+          
+          <nav className="hidden md:flex items-center gap-2">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg text-white font-medium text-sm border border-white/5">
+              <ArrowRightLeft size={16} />
+              <span>Transferências</span>
+            </div>
+          </nav>
+        </div>
+
+        {/* Right: Profile & Actions */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 text-right hidden sm:flex">
+            <div>
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mb-0.5">Atuando em</p>
+              <h1 className="text-sm font-display font-bold text-white tracking-tight">
+                {profile?.role === 'admin' ? 'Administração Geral' : `Loja ${profile?.lojas?.nome || 'Não Vinculada'}`}
+              </h1>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 shadow-inner flex items-center justify-center text-white font-bold text-lg ml-2">
+              {profile?.role === 'admin' ? 'AD' : profile?.lojas?.nome?.charAt(0) || 'L'}
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-300 hover:text-white transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-blue-700"></span>
+
+          <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+
+          <form action="/auth/signout" method="post">
+            <button className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-medium">
+              <LogOut size={18} />
+              <span className="hidden sm:inline">Sair</span>
             </button>
-            <form action="/auth/signout" method="post">
-              <button className="flex items-center gap-2 text-sm text-slate-300 hover:text-white font-medium transition-colors">
-                <LogOut size={18} />
-                <span className="hidden sm:inline">Sair</span>
-              </button>
-            </form>
-          </div>
+          </form>
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6">
-        {children}
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-auto w-full">
+        <div className="max-w-[1400px] mx-auto p-6 md:p-8 lg:p-10 w-full">
+          {children}
+        </div>
       </main>
     </div>
   )

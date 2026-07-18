@@ -1,26 +1,131 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
+@theme {
+  /* =========================================
+     Cores da Marca e Semânticas
+  ========================================= */
+  --color-primary: #031635;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1a2b4b;
+  --color-on-primary-container: #8293b8;
+  
+  --color-secondary: #b6171e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #da3433;
+  --color-on-secondary-container: #fffbff;
+  
+  --color-tertiary: #001733;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #002c56;
+  --color-on-tertiary-container: #4794f2;
+  
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  
+  /* =========================================
+     Cores de Superfície e Fundo
+  ========================================= */
+  --color-background: #f8f9fa;
+  --color-on-background: #191c1d;
+  
+  --color-surface: #f8f9fa;
+  --color-surface-dim: #d9dadb;
+  --color-surface-bright: #f8f9fa;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4f5;
+  --color-surface-container: #edeeef;
+  --color-surface-container-high: #e7e8e9;
+  --color-surface-container-highest: #e1e3e4;
+  
+  --color-on-surface: #191c1d;
+  --color-on-surface-variant: #44474e;
+  
+  --color-outline: #75777f;
+  --color-outline-variant: #c5c6cf;
+  
+  /* =========================================
+     Mapeamentos Shadcn UI
+  ========================================= */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  /* =========================================
+     Tipografia
+  ========================================= */
+  --font-display-lg: var(--font-hanken), sans-serif;
+  --font-headline-md: var(--font-hanken), sans-serif;
+  --font-title-sm: var(--font-hanken), sans-serif;
+  --font-body-md: var(--font-inter), sans-serif;
+  --font-body-sm: var(--font-inter), sans-serif;
+  --font-label-caps: var(--font-inter), sans-serif;
+  --font-data-mono: var(--font-jetbrains), monospace;
+
+  --font-sans: var(--font-inter), sans-serif;
+  --font-display: var(--font-hanken), sans-serif;
+  --font-mono: var(--font-jetbrains), monospace;
+
+  /* =========================================
+     Espaçamentos e Bordas (Radius)
+  ========================================= */
+  /* =========================================
+     Espaçamentos e Bordas (Radius)
+     Nota: As variáveis de spacing foram movidas/removidas do @theme
+     para não conflitar com a escala padrão do Tailwind v4 (ex: max-w-sm)
+  ========================================= */
+
+  --radius-DEFAULT: 0.25rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* Variáveis de sistema no formato OKLCH para UI e Gráficos */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

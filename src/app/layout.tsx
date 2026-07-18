@@ -1,16 +1,20 @@
 import type { Metadata } from 'next'
-import { Bebas_Neue, DM_Sans } from 'next/font/google'
+import { Inter, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const bebas = Bebas_Neue({
-  weight: '400',
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-bebas',
+  variable: '--font-inter',
 })
 
-const dmSans = DM_Sans({
+const hanken = Hanken_Grotesk({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-hanken',
+})
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
 })
 
 export const metadata: Metadata = {
@@ -43,12 +47,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className={`${inter.variable} ${hanken.variable} ${jetbrains.variable}`}>
       <head>
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
-      <body suppressHydrationWarning className={`${bebas.variable} ${dmSans.variable} font-[DM_Sans] antialiased bg-gray-50 text-slate-900 min-h-screen`}>
+      <body suppressHydrationWarning className="font-sans antialiased bg-background text-foreground min-h-screen">
         <Toaster position="top-right" toastOptions={{
           style: {
             background: '#18181b', // zinc-900

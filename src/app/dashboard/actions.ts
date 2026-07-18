@@ -164,6 +164,7 @@ export async function resolverPendencia(formData: FormData) {
 
   const transferenciaId = formData.get('transferenciaId') as string
   const foto = formData.get('foto') as File | null
+  const observacao_resolucao = formData.get('observacao_resolucao') as string | null
 
   if (!transferenciaId) throw new Error('ID missing')
 
@@ -188,12 +189,23 @@ export async function resolverPendencia(formData: FormData) {
     fotoUrl = publicUrlData.publicUrl
   }
 
+  let updateObj: any = {
+    situacao: 'PENDENCIA_ENVIADA',
+    foto_pendencia_url: fotoUrl
+  }
+
+  if (observacao_resolucao && observacao_resolucao.trim().length > 0) {
+    const { data: curr } = await supabase.from('transferencias').select('observacao_pendencia').eq('id', transferenciaId).single()
+    if (curr) {
+      updateObj.observacao_pendencia = curr.observacao_pendencia 
+        ? `${curr.observacao_pendencia}\n\n[RESOLUÇÃO]: ${observacao_resolucao}` 
+        : `[RESOLUÇÃO]: ${observacao_resolucao}`
+    }
+  }
+
   const { error } = await supabase
     .from('transferencias')
-    .update({
-      situacao: 'PENDENCIA_ENVIADA',
-      foto_pendencia_url: fotoUrl
-    })
+    .update(updateObj)
     .eq('id', transferenciaId)
 
   if (error) {
