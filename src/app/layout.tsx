@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -17,25 +17,45 @@ const jetbrains = JetBrains_Mono({
   variable: '--font-jetbrains',
 })
 
+export const viewport: Viewport = {
+  themeColor: '#031635',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export const metadata: Metadata = {
-  title: 'Equipar - Controle de Transferências',
-  description: 'Sistema de controle de transferências de mercadorias entre lojas - Equipar Acessórios e Latas',
+  title: 'Equipar | Controle de Transferências',
+  description: 'Sistema integrado de controle de transferências e auditoria de mercadorias entre lojas da rede Equipar.',
   manifest: '/manifest.json',
-  themeColor: '#4c1d95',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Equipar',
   },
   icons: {
-    icon: '/icon-512x512.png',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
     apple: '/icon-192x192.png',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
+  openGraph: {
+    title: 'Equipar | Controle de Transferências',
+    description: 'Sistema integrado de controle de transferências e auditoria de mercadorias entre lojas.',
+    url: 'https://transferencias.equipar.com',
+    siteName: 'Equipar Acessórios e Latarias',
+    images: [
+      {
+        url: '/logo.png',
+        width: 800,
+        height: 600,
+      },
+    ],
+    locale: 'pt_BR',
+    type: 'website',
   },
 }
 

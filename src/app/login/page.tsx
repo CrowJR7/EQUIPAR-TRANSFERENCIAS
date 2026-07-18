@@ -1,5 +1,6 @@
 import { login, signup } from './actions'
 import Image from 'next/image'
+import { SubmitButton } from './submit-button'
 
 export default async function LoginPage(
   props: {
@@ -25,7 +26,7 @@ export default async function LoginPage(
           )}
         </div>
 
-        <form className="space-y-5">
+        <form className="space-y-5" action={login}>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700" htmlFor="email">Email</label>
             <input
@@ -50,12 +51,7 @@ export default async function LoginPage(
           </div>
           
           <div className="pt-4">
-            <button
-              formAction={login}
-              className="w-full py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
-            >
-              Entrar no Sistema
-            </button>
+            <SubmitButton />
           </div>
         </form>
       </div>
