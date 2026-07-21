@@ -4,55 +4,80 @@ import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function criarTransferencia(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-    
-  if (!profile) throw new Error('Unauthorized')
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+      
+    if (!profile) throw new Error('Unauthorized')
 
-  const numero_nota = formData.get('numero_nota')
-  const origem_loja_id = formData.get('origem_loja_id')
-  const destino_loja_id = formData.get('destino_loja_id')
-  const valor = formData.get('valor')
-  const volumes = formData.get('volumes')
-  const emitida_por = formData.get('emitida_por')
+    const tipo = formData.get('tipo')
+    const numero_nota = formData.get('numero_nota')
+    const origem_loja_id = formData.get('origem_loja_id')
+    const destino_loja_id = formData.get('destino_loja_id')
+    const valor = formData.get('valor')
+    const volumes = formData.get('volumes')
+    const emitida_por = formData.get('emitida_por')
 
-  if (origem_loja_id === destino_loja_id) {
-    throw new Error('A loja de origem e destino não podem ser a mesma')
-  }
+    if (origem_loja_id === destino_loja_id) {
+      throw new Error('A loja de origem e destino não podem ser a mesma')
+    }
 
-  const { data, error } = await supabase
-    .from('transferencias')
-    .insert({
-      numero_nota: parseInt(numero_nota as string),
-      origem_loja_id: origem_loja_id as string,
-      destino_loja_id: destino_loja_id as string,
-      valor: parseFloat(valor as string),
-      volumes: volumes ? parseInt(volumes as string) : null,
-      emitida_por: emitida_por as string,
-      situacao: 'AGUARDANDO_SEPARACAO'
+    const isMod1 = tipo === 'MOD_1'
+
+    const { data, error } = await supabase
+      .from('transferencias')
+      .insert({
+        tipo: tipo as string,
+        numero_nota: parseInt(numero_nota as string),
+        origem_loja_id: origem_loja_id as string,
+        destino_loja_id: destino_loja_id as string,
+        valor: valor ? parseFloat(valor as string) : null,
+        volumes: volumes ? parseInt(volumes as string) : null,
+        emitida_por: emitida_por as string,
+        situacao: isMod1 ? 'CONCLUIDA' : 'AGUARDANDO_SEPARACAO',
+        separado: isMod1 ? true : false,
+        enviado: isMod1 ? true : false,
+        conferido: isMod1 ? true : false,
+        data_concluida: isMod1 ? new Date().toISOString().split('T')[0] : null
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error(error)
+      throw new Error(`Falha ao criar transferência: ${error.message}`)
+    }
+
+    const { error: eventError } = await supabase.from('transferencia_eventos').insert({
+      transferencia_id: data.id,
+      tipo_evento: 'CRIADA',
+      usuario_id: profile.id
     })
-    .select()
-    .single()
 
-  if (error) {
-    console.error(error)
-    throw new Error('Falha ao criar transferência')
+    if (isMod1) {
+      await supabase.from('transferencia_eventos').insert({
+        transferencia_id: data.id,
+        tipo_evento: 'CONFERIDA',
+        usuario_id: profile.id
+      })
+    }
+
+    if (eventError) {
+      console.error('Falha evento:', eventError)
+    }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
-
-  await supabase.from('transferencia_eventos').insert({
-    transferencia_id: data.id,
-    tipo_evento: 'CRIADA',
-    usuario_id: profile.id
-  })
-
-  revalidatePath('/dashboard')
 }
 
 export async function avancarSituacao(
@@ -69,7 +94,7 @@ export async function avancarSituacao(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     console.error('Sem usuario logado')
-    return
+    return { success: false, error: 'Sessão expirada. Faça login novamente.' }
   }
 
   let updateData: any = {}
@@ -80,7 +105,10 @@ export async function avancarSituacao(
       situacao: 'SEPARADO', 
       separado: true, 
       separador: dados.separador,
-      volumes: dados.volumes 
+      data_separado: new Date().toISOString()
+    }
+    if (dados.valor !== undefined) {
+      updateData.valor = dados.valor
     }
     evento = 'SEPARADA'
   } else if (acao === 'enviar') {
@@ -88,7 +116,8 @@ export async function avancarSituacao(
       situacao: 'ENVIADO', 
       enviado: true, 
       data_enviado: new Date().toISOString().split('T')[0],
-      motorista: dados.motorista
+      motorista: dados.motorista,
+      volumes: dados.volumes
     }
     evento = 'ENVIADA'
   } else if (acao === 'receber') {
@@ -111,7 +140,8 @@ export async function avancarSituacao(
         situacao: 'PENDENCIA', 
         conferido: true, 
         conferente: dados.conferente,
-        observacao_pendencia: dados.observacao
+        observacao_pendencia: dados.observacao,
+        prazo_pendencia: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
       }
       evento = 'PENDENCIA_ABERTA'
     }
@@ -142,7 +172,7 @@ export async function avancarSituacao(
 
   if (error) {
     console.error('Falha ao atualizar situação', error)
-    throw new Error('Falha ao atualizar situação')
+    return { success: false, error: error.message || 'Falha ao atualizar situação no banco de dados.' }
   }
 
   const { error: eventError } = await supabase.from('transferencia_eventos').insert({
@@ -151,10 +181,12 @@ export async function avancarSituacao(
     usuario_id: user.id
   })
 
-  console.log('Erro no evento:', eventError)
+  if (eventError) {
+    console.error('Falha evento:', eventError)
+  }
 
-  console.log('Revalidando /dashboard')
   revalidatePath('/dashboard')
+  return { success: true }
 }
 
 export async function resolverPendencia(formData: FormData) {
@@ -220,4 +252,106 @@ export async function resolverPendencia(formData: FormData) {
   })
 
   revalidatePath('/dashboard')
+}
+
+export async function editarTransferencia(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  if (!profile) throw new Error('Unauthorized')
+
+  const id = formData.get('id') as string
+  if (!id) throw new Error('ID missing')
+
+  let updateData: any = {}
+  
+  const volumes = formData.get('volumes')
+  if (volumes) updateData.volumes = parseInt(volumes as string)
+  
+  const valor = formData.get('valor')
+  if (valor) updateData.valor = parseFloat(valor as string)
+  
+  const observacao = formData.get('observacao')
+  if (observacao) updateData.observacao = observacao as string
+
+  // Admin only edits
+  if (profile.role === 'admin') {
+    const tipo = formData.get('tipo')
+    if (tipo) updateData.tipo = tipo as string
+    
+    const numero_nota = formData.get('numero_nota')
+    if (numero_nota) updateData.numero_nota = parseInt(numero_nota as string)
+    
+    const origem_loja_id = formData.get('origem_loja_id')
+    if (origem_loja_id) updateData.origem_loja_id = origem_loja_id as string
+    
+    const destino_loja_id = formData.get('destino_loja_id')
+    if (destino_loja_id) updateData.destino_loja_id = destino_loja_id as string
+  }
+
+  const { error } = await supabase.from('transferencias').update(updateData).eq('id', id)
+  
+  if (error) {
+    console.error(error)
+    throw new Error('Falha ao editar transferência')
+  }
+
+  await supabase.from('transferencia_eventos').insert({
+    transferencia_id: id,
+    tipo_evento: 'EDITADA',
+    usuario_id: user.id
+  })
+
+  revalidatePath('/dashboard')
+}
+
+export async function cancelarTransferencia(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') throw new Error('Forbidden')
+
+  const { error } = await supabase.from('transferencias').update({ situacao: 'CANCELADA' }).eq('id', id)
+  if (error) throw new Error('Falha ao cancelar')
+
+  await supabase.from('transferencia_eventos').insert({
+    transferencia_id: id,
+    tipo_evento: 'CANCELADA',
+    usuario_id: user.id
+  })
+
+  revalidatePath('/dashboard')
+}
+
+export async function excluirTransferencia(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') throw new Error('Forbidden')
+
+  const { error } = await supabase.from('transferencias').delete().eq('id', id)
+  if (error) throw new Error('Falha ao excluir')
+
+  revalidatePath('/dashboard')
+}
+
+export async function obterHistorico(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transferencia_eventos')
+    .select(`
+      *,
+      profiles(nome)
+    `)
+    .eq('transferencia_id', id)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error('Erro ao buscar histórico')
+  return data
 }
