@@ -32,7 +32,7 @@ interface TransferCardProps {
   isExpanded: boolean;
   toggleExpand: (id: string) => void;
   openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => void;
-  avancarSituacao: (id: string, acao: 'separar' | 'enviar' | 'receber' | 'conferir' | 'resolver_pendencia' | 'receber_pendencia', dados?: any) => Promise<void>;
+  avancarSituacao: (id: string, acao: 'separar' | 'enviar' | 'receber' | 'conferir' | 'resolver_pendencia' | 'receber_pendencia', dados?: any) => Promise<{ success: boolean, error?: string }>;
   index?: number;
 }
 

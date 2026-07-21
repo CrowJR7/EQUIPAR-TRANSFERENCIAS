@@ -1,4 +1,5 @@
-import { useState } from 'react'
+'use client'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 
 export const CustomSelect = ({ 
@@ -56,6 +57,51 @@ export const CustomSelect = ({
             })}
           </div>
         </>
+      )}
+    </div>
+  )
+}
+
+export const FilterSelect = ({ options, value, onChange, placeholder }: { options: { id: string, nome: string }[], value: string, onChange: (val: string) => void, placeholder: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.id === value);
+
+  return (
+    <div className="relative min-w-[200px]" ref={ref}>
+      <div 
+        className="flex items-center justify-between w-full bg-white/80 backdrop-blur-sm border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300 rounded-xl px-4 py-3 cursor-pointer transition-all"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className="text-sm font-bold text-slate-700">
+          {selectedOption ? selectedOption.nome : placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden py-1 animate-in fade-in zoom-in-95">
+          {options.map(opt => (
+            <div
+              key={opt.id}
+              className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${value === opt.id ? 'bg-primary/5 text-primary font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'}`}
+              onClick={() => { onChange(opt.id); setIsOpen(false); }}
+            >
+              {opt.nome}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

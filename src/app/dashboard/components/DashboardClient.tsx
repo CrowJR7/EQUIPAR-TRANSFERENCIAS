@@ -6,72 +6,9 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ChevronDown, ChevronUp, Search, AlertCircle, Package, CheckCircle, Truck, Image as ImageIcon, Clock, Settings, BarChart3, ListFilter, TrendingUp, UserX, Store, DollarSign, Check, Pencil, Activity, XCircle, Trash2, Flag } from 'lucide-react'
 import { TransferCard } from './TransferCard'
-import { CustomSelect } from './CustomSelect'
+import { CustomSelect, FilterSelect } from './CustomSelect'
+import { DashboardFilters } from './DashboardFilters'
 import { ActionModal } from './ActionModal'
-
-const FilterSelect = ({ options, value, onChange, placeholder }: { options: { id: string, nome: string }[], value: string, onChange: (val: string) => void, placeholder: string }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(o => o.id === value);
-
-  return (
-    <div className="relative min-w-[180px]" ref={ref}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white/80 backdrop-blur-sm border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300 rounded-xl px-4 py-3 text-sm text-slate-700 flex justify-between items-center cursor-pointer transition-all focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary"
-      >
-        <span className="truncate mr-4">{selectedOption ? selectedOption.nome : placeholder}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </div>
-      
-      {/* Overlay para mobile */}
-      {isOpen && (
-        <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setIsOpen(false)} />
-      )}
-      
-      {/* Menu dropdown com animação via classes CSS e transition */}
-      <div 
-        className={`absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1 max-h-60 overflow-auto origin-top transition-all duration-200 ease-out ${
-          isOpen 
-            ? 'opacity-100 scale-100 translate-y-0 visible' 
-            : 'opacity-0 scale-95 -translate-y-2 invisible pointer-events-none'
-        }`}
-      >
-        {options.map((opt) => {
-          const isSelected = value === opt.id;
-          return (
-            <div
-              key={opt.id}
-              onClick={() => {
-                onChange(opt.id);
-                setIsOpen(false);
-              }}
-              className={`px-4 py-3 text-sm cursor-pointer transition-colors flex items-center justify-between ${
-                isSelected 
-                  ? 'bg-primary/5 text-primary font-bold' 
-                  : 'hover:bg-slate-50 text-slate-700 font-medium'
-              }`}
-            >
-              {opt.nome}
-              {isSelected && <Check className="w-4 h-4" />}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-
 export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas: any[], enviando: any[], recebendo: any[], profile: any }) {
   const [activeTab, setActiveTab] = useState<'enviando' | 'recebendo' | 'pendencias' | 'historico'>('enviando')
   const [admTab, setAdmTab] = useState<'gerencial' | 'lista'>('gerencial')
@@ -582,38 +519,16 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
       {(!isAdm || admTab === 'lista') && (
       <>
         {/* Barra de Filtros e Busca */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Buscar por NF ou Loja..." 
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full bg-white/80 backdrop-blur-sm border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300 rounded-xl pl-12 pr-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-slate-400"
-            />
-          </div>
-          <FilterSelect 
-            value={filtroMes} 
-            onChange={setFiltroMes}
-            placeholder="Todos os Meses"
-            options={[
-              { id: 'TODOS', nome: 'Todos os Meses' },
-              ...availableMonths.map(m => ({ id: m, nome: formatMonth(m) }))
-            ]}
-          />
-          <FilterSelect 
-            value={filtroStatus} 
-            onChange={setFiltroStatus}
-            placeholder="Todos os Status"
-            options={[
-              { id: 'TODOS', nome: 'Todos os Status' },
-              { id: 'EM_TRANSITO', nome: 'Somente em Trânsito' },
-              { id: 'PENDENCIA', nome: 'Pendências' },
-              { id: 'CONCLUIDA', nome: 'Concluídas' }
-            ]}
-          />
-        </div>
+        <DashboardFilters 
+          busca={busca}
+          setBusca={setBusca}
+          filtroMes={filtroMes}
+          setFiltroMes={setFiltroMes}
+          filtroStatus={filtroStatus}
+          setFiltroStatus={setFiltroStatus}
+          availableMonths={availableMonths}
+          formatMonth={formatMonth}
+        />
       <div className="space-y-4 animate-in fade-in">
         {paginatedTransfers.length === 0 ? (
           <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-12 flex flex-col items-center justify-center text-slate-500 font-sans">
