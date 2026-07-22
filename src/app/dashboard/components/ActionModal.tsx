@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2 } from 'lucide-react'
+import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { createClient } from '@/utils/supabase/client'
 import { CustomSelect } from './CustomSelect'
@@ -31,6 +31,7 @@ export function ActionModal({
   const [conferirStatus, setConferirStatus] = useState<'ok' | 'pendencia'>('ok')
   const [fotosPendencia, setFotosPendencia] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [historicoEventos, setHistoricoEventos] = useState<any[]>([])
   const [isLoadingHistorico, setIsLoadingHistorico] = useState(false)
   const [editOrigem, setEditOrigem] = useState('')
@@ -59,7 +60,7 @@ export function ActionModal({
           try {
             const { data: events, error } = await supabase
               .from('transferencia_eventos')
-              .select('*, profiles(nome)')
+              .select('*, profiles(nome, lojas(nome))')
               .eq('transferencia_id', transferId)
               .order('created_at', { ascending: true })
             
@@ -82,6 +83,7 @@ export function ActionModal({
   const handleClose = () => {
     setFotosPendencia([])
     setHistoricoEventos([])
+    setIsSubmitting(false)
     onClose()
   }
 
@@ -119,7 +121,7 @@ export function ActionModal({
                           <time className="text-xs text-slate-400 font-medium">{new Date(evt.created_at).toLocaleString()}</time>
                         </div>
                         <div className="text-slate-500 text-xs">
-                          Usuário: <span className="font-semibold text-slate-700">{evt.profiles?.nome || 'Sistema'}</span>
+                          Usuário: <span className="font-semibold text-slate-700">{evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema'}</span>
                         </div>
                       </div>
                     </div>
@@ -151,14 +153,18 @@ export function ActionModal({
           {actionType === 'excluir' && 'Excluir Transferência'}
         </h3>
         
-        <form action={async (formData) => {
-          if (!transferId || !actionType) return
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          const formData = new FormData(e.currentTarget)
+          if (!transferId || !actionType || isUploading) return
+          setIsSubmitting(true)
 
           if (actionType === 'resolver_pendencia') {
             const obs = formData.get('observacao_resolucao') as string
             const foto = formData.get('foto') as File
             if ((!obs || obs.trim() === '') && (!foto || foto.size === 0)) {
               toast.error('Você deve fornecer uma anotação ou uma foto para resolver a pendência.', { id: 'resolver_err' })
+              setIsSubmitting(false)
               return
             }
 
@@ -170,6 +176,8 @@ export function ActionModal({
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'resolver' })
+            } finally {
+              setIsSubmitting(false)
             }
             return
           }
@@ -183,6 +191,8 @@ export function ActionModal({
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'editar' })
+            } finally {
+              setIsSubmitting(false)
             }
             return
           }
@@ -195,6 +205,8 @@ export function ActionModal({
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'cancel' })
+            } finally {
+              setIsSubmitting(false)
             }
             return
           }
@@ -207,6 +219,8 @@ export function ActionModal({
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'delete' })
+            } finally {
+              setIsSubmitting(false)
             }
             return
           }
@@ -243,12 +257,12 @@ export function ActionModal({
               for (const file of fotosPendencia) {
                 const fileExt = file.name.split('.').pop()
                 const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-                const { data, error } = await supabase.storage.from('pendencias').upload(fileName, file)
+                const { data, error } = await supabase.storage.from('fotos_pendencias').upload(fileName, file)
                 if (error) {
-                  throw new Error('Erro ao fazer upload da foto. Verifique se o bucket "pendencias" existe e é público no Supabase.')
+                  throw new Error('Erro ao fazer upload da foto. Verifique se o bucket "fotos_pendencias" existe e é público no Supabase.')
                 }
                 if (data) {
-                  const { data: publicUrlData } = supabase.storage.from('pendencias').getPublicUrl(data.path)
+                  const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(data.path)
                   uploadedUrls.push(publicUrlData.publicUrl)
                 }
               }
@@ -268,6 +282,7 @@ export function ActionModal({
             toast.error('Erro: ' + e.message, { id: 'acao' })
           } finally {
             setIsUploading(false)
+            setIsSubmitting(false)
           }
         }} className="space-y-5 font-sans">
 
@@ -438,9 +453,14 @@ export function ActionModal({
           )}
 
           <div className="pt-6 flex justify-end gap-3">
-            <button type="button" onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
-            <button type="submit" disabled={isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-lg transition-all shadow-md active:scale-95 text-white disabled:opacity-50 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}>
-              {isUploading ? 'Processando...' : actionType === 'cancelar' ? 'Sim, Cancelar' : actionType === 'excluir' ? 'Sim, Excluir' : 'Confirmar'}
+            <button type="button" disabled={isSubmitting || isUploading} onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">Cancelar</button>
+            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-lg transition-all shadow-md active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}>
+              {isSubmitting || isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Enviando...</span>
+                </>
+              ) : actionType === 'cancelar' ? 'Sim, Cancelar' : actionType === 'excluir' ? 'Sim, Excluir' : 'Confirmar'}
             </button>
           </div>
         </form>

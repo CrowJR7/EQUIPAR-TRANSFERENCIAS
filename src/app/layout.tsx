@@ -26,6 +26,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'Equipar | Controle de Transferências',
   description: 'Sistema integrado de controle de transferências e auditoria de mercadorias entre lojas da rede Equipar.',
   manifest: '/manifest.json',

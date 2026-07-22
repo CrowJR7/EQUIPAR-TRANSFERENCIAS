@@ -118,11 +118,21 @@ export function TransferCard({
             <div className="text-slate-800 font-bold text-2xl tracking-tight">NF: {item.numero_nota}</div>
             
             <div className={`text-[10px] px-3 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${isPendencyState ? 'bg-red-50 text-red-700 border border-red-100' : item.situacao === 'CONCLUIDA' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : item.situacao === 'CANCELADA' ? 'bg-gray-100 text-gray-600 border border-gray-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
-              {isPendencyState && <AlertCircle className="w-3 h-3" />}
+              {isPendencyState && <AlertCircle className="w-3 h-3 text-red-600 animate-pulse" />}
               {item.situacao === 'CONCLUIDA' && <CheckCircle className="w-3 h-3" />}
               {item.situacao === 'CANCELADA' && <XCircle className="w-3 h-3" />}
               {!isPendencyState && !['CONCLUIDA', 'CANCELADA'].includes(item.situacao) && <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />}
-              {item.situacao.replace(/_/g, ' ')}
+              {item.situacao === 'PENDENCIA' ? (
+                isOrigin && !isDest ? 'PENDÊNCIA — SUA VEZ DE RESPONDER' :
+                isDest && !isOrigin ? `PENDÊNCIA — AGUARDANDO RESP. ${item.origem?.nome || 'ORIGEM'}` :
+                'PENDÊNCIA ABERTA'
+              ) : item.situacao === 'PENDENCIA_ENVIADA' ? (
+                isDest && !isOrigin ? 'RESPOSTA RECEBIDA — CONFIRME O RECEBIMENTO' :
+                isOrigin && !isDest ? `RESPOSTA ENVIADA — AGUARDANDO ${item.destino?.nome || 'DESTINO'}` :
+                'PENDÊNCIA RESPONDIDA'
+              ) : (
+                item.situacao.replace(/_/g, ' ')
+              )}
             </div>
 
             {isPendencyState && isSlaAtrasado(item.prazo_pendencia) && (
@@ -184,13 +194,13 @@ export function TransferCard({
             </button>
           )}
 
-          {isDest && item.situacao === 'PENDENCIA' && (
+          {isOrigin && item.situacao === 'PENDENCIA' && (
             <button onClick={() => openActionModal(item.id, 'resolver_pendencia')} className="px-4 py-2.5 text-sm bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
               Responder
             </button>
           )}
 
-          {isOrigin && item.situacao === 'PENDENCIA_ENVIADA' && (
+          {isDest && item.situacao === 'PENDENCIA_ENVIADA' && (
             <button onClick={() => {
               toast.promise(avancarSituacao(item.id, 'receber_pendencia').then((res: any) => {
                 if (res?.error) throw new Error(res.error)
@@ -262,6 +272,30 @@ export function TransferCard({
                       </span>
                     )}
                   </div>
+
+                  {item.situacao === 'PENDENCIA' && isOrigin && !isAdm && (
+                    <div className="mb-3 p-3 bg-red-100 border border-red-200 rounded-xl text-red-900 text-xs font-bold flex items-center gap-2">
+                      <span>👉 Sua loja ({item.origem?.nome}) é a ORIGEM desta transferência. A loja {item.destino?.nome} relatou este problema. Clique no botão vermelho <strong>[ Responder ]</strong> acima para enviar a solução.</span>
+                    </div>
+                  )}
+
+                  {item.situacao === 'PENDENCIA' && isDest && !isAdm && (
+                    <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-semibold flex items-center gap-2">
+                      <span>⏳ Sua loja ({item.destino?.nome}) relatou esta pendência. A loja de origem ({item.origem?.nome}) foi notificada e precisa responder com a solução.</span>
+                    </div>
+                  )}
+
+                  {item.situacao === 'PENDENCIA_ENVIADA' && isDest && !isAdm && (
+                    <div className="mb-3 p-3 bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-bold flex items-center gap-2">
+                      <span>✅ A loja de origem ({item.origem?.nome}) enviou a resposta da pendência. Verifique as fotos/anotações abaixo e clique em <strong>[ Confirmar Recebimento ]</strong>.</span>
+                    </div>
+                  )}
+
+                  {item.situacao === 'PENDENCIA_ENVIADA' && isOrigin && !isAdm && (
+                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs font-semibold flex items-center gap-2">
+                      <span>ℹ️ Você enviou a resposta desta pendência. Aguardando a loja de destino ({item.destino?.nome}) conferir a solução e confirmar o recebimento.</span>
+                    </div>
+                  )}
                   <div className="text-red-900 leading-relaxed font-medium mb-3">
                     {item.observacao_pendencia ? (
                       item.observacao_pendencia.includes('||FOTOS||') ? (
@@ -272,6 +306,7 @@ export function TransferCard({
                             <div className="flex gap-2 flex-wrap">
                               {item.observacao_pendencia.split('||FOTOS||')[1].split(',').map((url: string, i: number) => (
                                 <a key={i} href={url.trim()} target="_blank" rel="noreferrer" className="inline-block border-2 border-red-200 rounded-lg overflow-hidden hover:opacity-80 transition-opacity hover:shadow-md">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={url.trim()} alt="Anexo Pendência" className="h-32 w-auto object-cover" />
                                 </a>
                               ))}
@@ -289,6 +324,7 @@ export function TransferCard({
                     <div className="mt-4">
                       <strong className="block text-red-700 mb-2 font-bold text-[10px] uppercase tracking-wider">Foto da Resolução</strong>
                       <a href={item.foto_pendencia_url} target="_blank" rel="noreferrer" className="inline-block border-2 border-red-200 rounded-lg overflow-hidden hover:opacity-80 transition-opacity hover:shadow-md">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={item.foto_pendencia_url} alt="Foto da Pendência" className="h-32 w-auto object-cover" />
                       </a>
                     </div>

@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-excel": "tsx scratch/sync_excel_to_db.ts",
+    "audit-db": "tsx scratch/audit_completeness.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

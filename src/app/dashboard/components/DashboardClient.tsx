@@ -4,15 +4,16 @@ import { criarTransferencia, avancarSituacao, resolverPendencia, editarTransfere
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { ChevronDown, ChevronUp, Search, AlertCircle, Package, CheckCircle, Truck, Image as ImageIcon, Clock, Settings, BarChart3, ListFilter, TrendingUp, UserX, Store, DollarSign, Check, Pencil, Activity, XCircle, Trash2, Flag } from 'lucide-react'
+import { AlertCircle, Package, CheckCircle, Truck, Settings, BarChart3, ListFilter, UserX, Store, Loader2 } from 'lucide-react'
 import { TransferCard } from './TransferCard'
-import { CustomSelect, FilterSelect } from './CustomSelect'
+import { CustomSelect } from './CustomSelect'
 import { DashboardFilters } from './DashboardFilters'
 import { ActionModal } from './ActionModal'
 export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas: any[], enviando: any[], recebendo: any[], profile: any }) {
   const [activeTab, setActiveTab] = useState<'enviando' | 'recebendo' | 'pendencias' | 'historico'>('enviando')
   const [admTab, setAdmTab] = useState<'gerencial' | 'lista'>('gerencial')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isCriando, setIsCriando] = useState(false)
   const [novaOrigem, setNovaOrigem] = useState('')
   const [novoDestino, setNovoDestino] = useState('')
   const [tipoTransf, setTipoTransf] = useState('INTERNA')
@@ -78,18 +79,18 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
     setActionModal({ isOpen: false, transferId: null, actionType: null })
   }
 
-  const handleCancel = (id: string) => {
-    openActionModal(id, 'cancelar')
-  }
+  // const handleCancel = (id: string) => {
+  //   openActionModal(id, 'cancelar')
+  // }
 
-  const handleDelete = (id: string) => {
-    openActionModal(id, 'excluir')
-  }
+  // const handleDelete = (id: string) => {
+  //   openActionModal(id, 'excluir')
+  // }
   
-  const isSlaAtrasado = (prazo: string | null) => {
-    if (!prazo) return false;
-    return new Date() > new Date(prazo);
-  }
+  // const isSlaAtrasado = (prazo: string | null) => {
+  //   if (!prazo) return false;
+  //   return new Date() > new Date(prazo);
+  // }
 
   const [expandedItems, setExpandedItems] = useState<string[]>([])
 
@@ -109,7 +110,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
     const separadorPendenciasCount: Record<string, number> = {};
     let notasEmAndamento = 0;
     let notasComPendencia = 0;
-    let totalLojasOriginadas: Record<string, number> = {};
+    const totalLojasOriginadas: Record<string, number> = {};
     
     enviando.forEach(t => {
        const isPendency = t.situacao === 'PENDENCIA' || t.situacao === 'PENDENCIA_ENVIADA';
@@ -214,7 +215,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
     });
     
     return list
-  }, [isAdm, enviando, recebendo, activeTab, busca, filtroStatus, filtroMes, enviandoAtivos, recebendoAtivos, pendenciasUnicas, historicoUnico])
+  }, [isAdm, enviando, activeTab, busca, filtroStatus, filtroMes, enviandoAtivos, recebendoAtivos, pendenciasUnicas, historicoUnico])
 
   const totalPages = Math.ceil(filteredTransfers.length / itemsPerPage)
   const paginatedTransfers = useMemo(() => {
@@ -612,7 +613,12 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
               </div>
             </div>
             
-            <form action={async (formData) => {
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const formData = new FormData(e.currentTarget)
+              if (isCriando) return
+              setIsCriando(true)
+
               const destino = formData.get('destino') as string
               const numero_nota = formData.get('numero_nota') as string
               const observacao = formData.get('observacao') as string
@@ -622,7 +628,10 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
               const tipo = formData.get('tipo') as string || tipoTransf
               const emissor = formData.get('emissor') as string
               
-              if (!destino || !numero_nota) return
+              if (!destino || !numero_nota) {
+                setIsCriando(false)
+                return
+              }
               
               const formDataAction = new FormData()
               formDataAction.append('numero_nota', numero_nota)
@@ -645,6 +654,8 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                 }
               } catch (e: any) {
                 toast.error('Erro inesperado: ' + e.message, { id: 'nova_transf' })
+              } finally {
+                setIsCriando(false)
               }
             }} className="space-y-5 font-sans relative z-10">
               
@@ -717,13 +728,20 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                 </div>
               )}
 
-
-
               <div className="pt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
-                <button type="submit" className="px-8 py-3 bg-primary text-white hover:bg-primary/90 font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">
-                  <Package className="w-4 h-4" />
-                  Criar Transferência
+                <button type="button" disabled={isCriando} onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50">Cancelar</button>
+                <button type="submit" disabled={isCriando} className="px-8 py-3 bg-primary text-white hover:bg-primary/90 font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed">
+                  {isCriando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      Criando...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="w-4 h-4" />
+                      Criar Transferência
+                    </>
+                  )}
                 </button>
               </div>
             </form>
