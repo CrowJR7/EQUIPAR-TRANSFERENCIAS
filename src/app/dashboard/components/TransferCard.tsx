@@ -63,6 +63,11 @@ export function TransferCard({
     borderHoverClass = 'hover:border-red-300'
     lineThemeClass = 'bg-red-100'
     truckThemeClass = 'text-red-400 group-hover:text-red-600'
+  } else if (item.situacao === 'CONCLUIDA') {
+    hoverBgClass = 'group-hover:bg-emerald-500 group-hover:border-emerald-500 group-hover:text-white'
+    borderHoverClass = 'hover:border-emerald-200'
+    lineThemeClass = 'bg-emerald-100'
+    truckThemeClass = 'text-emerald-400 group-hover:text-emerald-500'
   } else if (activeTab === 'recebendo') {
     hoverBgClass = 'group-hover:bg-amber-500 group-hover:border-amber-500 group-hover:text-white'
     borderHoverClass = 'hover:border-amber-200'
@@ -90,7 +95,7 @@ export function TransferCard({
            {/* Origem */}
            <div className="flex flex-col items-center min-w-[60px]">
               <div className={`w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm mb-1.5 transition-all duration-300 shadow-sm ${hoverBgClass}`}>
-                {item.origem?.nome?.substring(0, 3) || 'ORI'}
+                {item.origem?.nome?.substring(0, 4) || 'ORIG'}
               </div>
               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{item.origem?.nome || 'Você'}</span>
            </div>
@@ -106,7 +111,7 @@ export function TransferCard({
            {/* Destino */}
            <div className="flex flex-col items-center min-w-[60px]">
               <div className={`w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm mb-1.5 transition-all duration-300 shadow-sm ${hoverBgClass}`}>
-                {item.destino?.nome?.substring(0, 3) || 'DES'}
+                {item.destino?.nome?.substring(0, 4) || 'DEST'}
               </div>
               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{item.destino?.nome || 'Você'}</span>
            </div>
@@ -351,6 +356,12 @@ export function TransferCard({
               <div className="text-slate-400 font-bold mb-1.5 flex items-center gap-1.5 uppercase text-[10px] tracking-widest"><CheckCircle className="w-3.5 h-3.5"/> Conferente</div>
               <div className="text-slate-800 font-semibold">{item.conferente || '-'}</div>
             </div>
+            {item.fornecedor && (
+              <div className="bg-slate-50/80 rounded-xl p-4">
+                <div className="text-slate-400 font-bold mb-1.5 uppercase text-[10px] tracking-widest">Fornecedor</div>
+                <div className="text-slate-800 font-semibold">{item.fornecedor}</div>
+              </div>
+            )}
             <div className="bg-slate-50/80 rounded-xl p-4 md:col-span-4 mt-2">
               <div className="text-slate-400 font-bold mb-3 flex items-center gap-1.5 uppercase text-[10px] tracking-widest"><Clock className="w-3.5 h-3.5"/> Histórico de Datas</div>
               <div className="text-xs text-slate-700 flex flex-wrap gap-3">

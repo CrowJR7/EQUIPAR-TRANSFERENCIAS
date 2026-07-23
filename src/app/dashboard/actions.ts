@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 export async function criarTransferencia(formData: FormData) {
@@ -23,6 +24,7 @@ export async function criarTransferencia(formData: FormData) {
     const destino_loja_id = formData.get('destino_loja_id')
     const valor = formData.get('valor')
     const volumes = formData.get('volumes')
+    const fornecedor = formData.get('fornecedor')
     const emitida_por = formData.get('emitida_por')
 
     if (origem_loja_id === destino_loja_id) {
@@ -40,6 +42,7 @@ export async function criarTransferencia(formData: FormData) {
         destino_loja_id: destino_loja_id as string,
         valor: valor ? parseFloat(valor as string) : null,
         volumes: volumes ? parseInt(volumes as string) : null,
+        fornecedor: fornecedor as string | null,
         emitida_por: emitida_por as string,
         situacao: isMod1 ? 'CONCLUIDA' : 'AGUARDANDO_SEPARACAO',
         separado: isMod1 ? true : false,
@@ -96,6 +99,18 @@ export async function avancarSituacao(
     if (!user) {
       console.error('Sem usuario logado')
       return { success: false, error: 'Sessão expirada. Faça login novamente.' }
+    }
+
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role').eq('id', user.id).single()
+    if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    
+    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id').eq('id', transferenciaId).single()
+    if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
+
+    if (profile.role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
+      return { success: false, error: 'Acesso negado: Você não pertence à loja de origem ou destino.' }
     }
 
     let updateData: any = {}
@@ -162,7 +177,9 @@ export async function avancarSituacao(
 
     console.log('Update Data:', updateData)
 
-    const { data: updatedRow, error, count } = await supabase
+    console.log('Update Data:', updateData)
+
+    const { data: updatedRow, error, count } = await supabaseAdmin
       .from('transferencias')
       .update(updateData)
       .eq('id', transferenciaId)
@@ -180,7 +197,7 @@ export async function avancarSituacao(
       return { success: false, error: 'Acesso negado ou transferência não encontrada.' }
     }
 
-    const { error: eventError } = await supabase.from('transferencia_eventos').insert({
+    const { error: eventError } = await supabaseAdmin.from('transferencia_eventos').insert({
       transferencia_id: transferenciaId,
       tipo_evento: evento,
       usuario_id: user.id
@@ -203,6 +220,9 @@ export async function resolverPendencia(formData: FormData) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Sessão expirada' }
+
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role').eq('id', user.id).single()
+    if (!profile) return { success: false, error: 'Perfil não encontrado' }
 
     const transferenciaId = formData.get('transferenciaId') as string
     const foto = formData.get('foto') as File | null
@@ -236,31 +256,35 @@ export async function resolverPendencia(formData: FormData) {
       foto_pendencia_url: fotoUrl
     }
 
+    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id, observacao_pendencia').eq('id', transferenciaId).single()
+    
+    if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
+    if (profile.role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
+      return { success: false, error: 'Acesso negado: Você não pertence à loja de origem ou destino.' }
+    }
+
     if (observacao_resolucao && observacao_resolucao.trim().length > 0) {
-      const { data: curr } = await supabase.from('transferencias').select('observacao_pendencia').eq('id', transferenciaId).single()
-      if (curr) {
-        if (curr.observacao_pendencia && curr.observacao_pendencia.includes('||FOTOS||')) {
-          const parts = curr.observacao_pendencia.split('||FOTOS||')
-          updateObj.observacao_pendencia = `${parts[0]}\n\n[RESOLUÇÃO]: ${observacao_resolucao} ||FOTOS|| ${parts[1]}`
-        } else {
-          updateObj.observacao_pendencia = curr.observacao_pendencia 
-            ? `${curr.observacao_pendencia}\n\n[RESOLUÇÃO]: ${observacao_resolucao}` 
-            : `[RESOLUÇÃO]: ${observacao_resolucao}`
-        }
+      if (currTransfer.observacao_pendencia && currTransfer.observacao_pendencia.includes('||FOTOS||')) {
+        const parts = currTransfer.observacao_pendencia.split('||FOTOS||')
+        updateObj.observacao_pendencia = `${parts[0]}\n\n[RESOLUÇÃO]: ${observacao_resolucao} ||FOTOS|| ${parts[1]}`
+      } else {
+        updateObj.observacao_pendencia = currTransfer.observacao_pendencia 
+          ? `${currTransfer.observacao_pendencia}\n\n[RESOLUÇÃO]: ${observacao_resolucao}` 
+          : `[RESOLUÇÃO]: ${observacao_resolucao}`
       }
     }
 
-    const { error } = await supabase
+    const { data: updatedRow, error } = await supabaseAdmin
       .from('transferencias')
       .update(updateObj)
       .eq('id', transferenciaId)
+      .select()
 
-    if (error) {
-      console.error(error)
-      return { success: false, error: error.message }
-    }
+    if (error) return { success: false, error: 'Falha ao atualizar situação' }
+    if (!updatedRow || updatedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou bloqueada.' }
 
-    await supabase.from('transferencia_eventos').insert({
+    await supabaseAdmin.from('transferencia_eventos').insert({
       transferencia_id: transferenciaId,
       tipo_evento: 'PENDENCIA_ENVIADA',
       usuario_id: user.id
@@ -294,7 +318,10 @@ export async function editarTransferencia(formData: FormData) {
     if (valor) updateData.valor = parseFloat(valor as string)
     
     const observacao = formData.get('observacao')
-    if (observacao) updateData.observacao = observacao as string
+    if (observacao !== null) updateData.observacao = observacao as string
+    
+    const fornecedor = formData.get('fornecedor')
+    if (fornecedor !== null) updateData.fornecedor = (fornecedor as string).trim() || null
 
     // Admin only edits
     if (profile.role === 'admin') {
@@ -311,14 +338,21 @@ export async function editarTransferencia(formData: FormData) {
       if (destino_loja_id) updateData.destino_loja_id = destino_loja_id as string
     }
 
-    const { error } = await supabase.from('transferencias').update(updateData).eq('id', id)
+    const supabaseAdmin = profile.role === 'admin' 
+      ? createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      : supabase
+
+    const { data: updatedRow, error } = await supabaseAdmin.from('transferencias').update(updateData).eq('id', id).select()
     
     if (error) {
       console.error(error)
-      return { success: false, error: 'Falha ao editar transferência' }
+      return { success: false, error: 'Falha ao editar transferência: ' + error.message }
+    }
+    if (!updatedRow || updatedRow.length === 0) {
+      return { success: false, error: 'Transferência não encontrada ou sem permissão para editar.' }
     }
 
-    await supabase.from('transferencia_eventos').insert({
+    await supabaseAdmin.from('transferencia_eventos').insert({
       transferencia_id: id,
       tipo_evento: 'EDITADA',
       usuario_id: user.id
@@ -340,10 +374,16 @@ export async function cancelarTransferencia(id: string) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     if (profile?.role !== 'admin') return { success: false, error: 'Forbidden' }
 
-    const { error } = await supabase.from('transferencias').update({ situacao: 'CANCELADA' }).eq('id', id)
-    if (error) return { success: false, error: 'Falha ao cancelar' }
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    await supabase.from('transferencia_eventos').insert({
+    const { data: updatedRow, error } = await supabaseAdmin.from('transferencias').update({ situacao: 'CANCELADA' }).eq('id', id).select()
+    if (error) return { success: false, error: 'Falha ao cancelar: ' + error.message }
+    if (!updatedRow || updatedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou bloqueada.' }
+
+    await supabaseAdmin.from('transferencia_eventos').insert({
       transferencia_id: id,
       tipo_evento: 'CANCELADA',
       usuario_id: user.id
@@ -365,8 +405,18 @@ export async function excluirTransferencia(id: string) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     if (profile?.role !== 'admin') return { success: false, error: 'Forbidden' }
 
-    const { error } = await supabase.from('transferencias').delete().eq('id', id)
-    if (error) return { success: false, error: 'Falha ao excluir' }
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Primeiro exclui os eventos para não dar erro de chave estrangeira
+    const { error: eventsError } = await supabaseAdmin.from('transferencia_eventos').delete().eq('transferencia_id', id)
+    if (eventsError) return { success: false, error: 'Falha ao excluir histórico da transferência: ' + eventsError.message }
+
+    const { data: deletedRow, error } = await supabaseAdmin.from('transferencias').delete().eq('id', id).select()
+    if (error) return { success: false, error: 'Falha ao excluir: ' + error.message }
+    if (!deletedRow || deletedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou já excluída.' }
 
     revalidatePath('/dashboard')
     return { success: true }

@@ -532,9 +532,21 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
         />
       <div className="space-y-4 animate-in fade-in">
         {paginatedTransfers.length === 0 ? (
-          <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-12 flex flex-col items-center justify-center text-slate-500 font-sans">
-            <Package className="w-12 h-12 mb-3 text-slate-300 opacity-80" />
-            <p>Nenhuma transferência encontrada com estes filtros.</p>
+          <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-16 flex flex-col items-center justify-center text-slate-500 font-sans animate-in zoom-in-95 duration-300">
+            <Package className="w-16 h-16 mb-4 text-slate-300" />
+            <h3 className="text-lg font-bold text-slate-700 mb-1">Nenhuma transferência por aqui</h3>
+            <p className="text-sm text-center max-w-sm">
+              {busca 
+                ? 'Nenhum resultado encontrado para a sua busca. Tente mudar os filtros.' 
+                : activeTab === 'enviando' 
+                  ? 'Sua loja não tem nenhuma transferência em andamento para envio.'
+                  : activeTab === 'recebendo'
+                    ? 'Nenhuma mercadoria a caminho da sua loja no momento.'
+                    : activeTab === 'pendencias'
+                      ? 'Ótima notícia! Nenhuma pendência aguardando resolução.'
+                      : 'O histórico está vazio para os filtros selecionados.'
+              }
+            </p>
           </div>
         ) : (
           paginatedTransfers.map((item, index) => {
@@ -625,6 +637,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
               const origem_loja = formData.get('origem') as string
               const valor = formData.get('valor') as string
               const volumes = formData.get('volumes') as string
+              const fornecedor = formData.get('fornecedor') as string
               const tipo = formData.get('tipo') as string || tipoTransf
               const emissor = formData.get('emissor') as string
               
@@ -641,6 +654,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
               if (observacao) formDataAction.append('observacao', observacao)
               if (valor) formDataAction.append('valor', valor)
               if (volumes) formDataAction.append('volumes', volumes)
+              if (fornecedor) formDataAction.append('fornecedor', fornecedor)
               formDataAction.append('emitida_por', emissor || profile?.nome || 'Admin')
 
               try {
@@ -725,11 +739,17 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                       <input type="number" name="volumes" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 3" />
                     </div>
                   )}
+                  {tipoTransf === 'COMPRA' && (
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5"><Store className="w-4 h-4 text-slate-400"/> Nome do Fornecedor</label>
+                      <input required type="text" name="fornecedor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Fornecedor" />
+                    </div>
+                  )}
                 </div>
               )}
 
               <div className="pt-8 flex justify-end gap-3">
-                <button type="button" disabled={isCriando} onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50">Cancelar</button>
+                <button type="button" disabled={isCriando} onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
                 <button type="submit" disabled={isCriando} className="px-8 py-3 bg-primary text-white hover:bg-primary/90 font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed">
                   {isCriando ? (
                     <>

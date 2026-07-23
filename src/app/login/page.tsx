@@ -27,26 +27,26 @@ export default async function LoginPage(
         </div>
 
         <form className="space-y-5" action={login}>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700" htmlFor="email">Email</label>
-            <input
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2" htmlFor="email">Email</label>
+            <input 
               id="email"
-              name="email"
-              type="email"
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-slate-900 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-slate-400"
-              placeholder="ex: onix@equipar.com"
+              type="email" 
+              name="email" 
+              placeholder="ex: onix@equipar.com" 
+              required 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50 placeholder:text-slate-400 placeholder:font-normal"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700" htmlFor="password">Senha</label>
-            <input
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2" htmlFor="password">Senha</label>
+            <input 
               id="password"
-              name="password"
-              type="password"
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-slate-900 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-slate-400"
-              placeholder="Sua senha de acesso"
+              type="password" 
+              name="password" 
+              placeholder="Sua senha de acesso" 
+              required 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50 placeholder:text-slate-400 placeholder:font-normal"
             />
           </div>
           

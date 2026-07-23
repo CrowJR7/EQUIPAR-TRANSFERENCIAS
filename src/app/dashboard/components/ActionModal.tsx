@@ -132,7 +132,7 @@ export function ActionModal({
           </div>
           
           <div className="pt-8 flex justify-end">
-            <button type="button" onClick={handleClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Fechar</button>
+            <button type="button" onClick={handleClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95">Fechar</button>
           </div>
         </div>
       </div>
@@ -171,7 +171,8 @@ export function ActionModal({
             try {
               toast.loading('Enviando...', { id: 'resolver' })
               formData.append('transferenciaId', transferId)
-              await resolverPendencia(formData)
+              const res = await resolverPendencia(formData)
+              if (!res.success) throw new Error(res.error)
               toast.success('Pendência resolvida e enviada!', { id: 'resolver' })
               handleClose()
             } catch (e: any) {
@@ -186,7 +187,8 @@ export function ActionModal({
             try {
               toast.loading('Salvando edição...', { id: 'editar' })
               formData.append('id', transferId)
-              await editarTransferencia(formData)
+              const res = await editarTransferencia(formData)
+              if (!res.success) throw new Error(res.error)
               toast.success('Transferência editada!', { id: 'editar' })
               handleClose()
             } catch (e: any) {
@@ -200,7 +202,8 @@ export function ActionModal({
           if (actionType === 'cancelar') {
             try {
               toast.loading('Cancelando...', { id: 'cancel' })
-              await cancelarTransferencia(transferId)
+              const res = await cancelarTransferencia(transferId)
+              if (!res.success) throw new Error(res.error)
               toast.success('Cancelada!', { id: 'cancel' })
               handleClose()
             } catch (e: any) {
@@ -214,7 +217,8 @@ export function ActionModal({
           if (actionType === 'excluir') {
             try {
               toast.loading('Excluindo...', { id: 'delete' })
-              await excluirTransferencia(transferId)
+              const res = await excluirTransferencia(transferId)
+              if (!res.success) throw new Error(res.error)
               toast.success('Excluída!', { id: 'delete' })
               handleClose()
             } catch (e: any) {
@@ -290,12 +294,12 @@ export function ActionModal({
             <>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Separador</label>
-                <input required type="text" name="separador" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Quem separou?" />
+                <input required type="text" name="separador" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem separou?" />
               </div>
               {item?.tipo === 'VENDA' && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Valor da Nota Final (R$)</label>
-                  <input required type="number" step="0.01" name="valor" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Ex: 1500.50" />
+                  <input required type="number" step="0.01" name="valor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 1500.50" />
                 </div>
               )}
             </>
@@ -305,11 +309,11 @@ export function ActionModal({
             <>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Motorista</label>
-                <input required type="text" name="motorista" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Quem está levando?" />
+                <input required type="text" name="motorista" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem está levando?" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1 mt-3">Quantos Volumes?</label>
-                <input required type="number" name="volumes" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Ex: 3" />
+                <input required type="number" name="volumes" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 3" />
               </div>
             </>
           )}
@@ -318,16 +322,16 @@ export function ActionModal({
             <>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Conferente</label>
-                <input required type="text" name="conferente" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Quem está conferindo?" />
+                <input required type="text" name="conferente" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem está conferindo?" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-3">Status da Mercadoria</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border border-gray-200 py-2 px-3 rounded-lg flex-1">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 py-3 px-4 rounded-xl flex-1 transition-all">
                     <input type="radio" name="status" value="ok" checked={conferirStatus === 'ok'} onChange={() => setConferirStatus('ok')} className="accent-blue-600 w-4 h-4" />
                     <span className="text-slate-800 text-sm font-medium">Tudo Certo</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 border border-gray-200 py-2 px-3 rounded-lg flex-1">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 py-3 px-4 rounded-xl flex-1 transition-all">
                     <input type="radio" name="status" value="pendencia" checked={conferirStatus === 'pendencia'} onChange={() => setConferirStatus('pendencia')} className="accent-red-600 w-4 h-4" />
                     <span className="text-slate-800 text-sm font-medium">Com Pendência</span>
                   </label>
@@ -337,7 +341,7 @@ export function ActionModal({
                 <>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1 text-red-600">Qual foi a pendência?</label>
-                    <textarea required name="observacao" rows={3} className="w-full bg-red-50 border border-red-200 rounded-lg p-2.5 text-red-900 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors" placeholder="Ex: Faltou 2 caixas de produto X..."></textarea>
+                    <textarea required name="observacao" rows={3} className="w-full bg-red-50 border border-red-200 rounded-xl p-3.5 text-red-900 font-medium focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all placeholder:text-red-300" placeholder="Ex: Faltou 2 caixas de produto X..."></textarea>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2 mt-2">
@@ -348,7 +352,7 @@ export function ActionModal({
                       if (e.target.files) {
                         setFotosPendencia(Array.from(e.target.files))
                       }
-                    }} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 transition-colors border border-gray-300 rounded-lg bg-gray-50 p-2 cursor-pointer" />
+                    }} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-100 file:text-red-700 hover:file:bg-red-200 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
                   </div>
                 </>
               )}
@@ -367,7 +371,7 @@ export function ActionModal({
                 <textarea 
                   name="observacao_resolucao" 
                   rows={3} 
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" 
                   placeholder="Ex: Encontrado as 2 caixas faltando, seguem na próxima viagem."
                 ></textarea>
               </div>
@@ -376,7 +380,7 @@ export function ActionModal({
                 <ImageIcon className="w-4 h-4" />
                 Foto da Pendência <span className="text-slate-400 font-normal">(Opcional se preencher anotação)</span>
               </label>
-              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors border border-gray-300 rounded-lg bg-gray-50 p-2 cursor-pointer" />
+              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
           
@@ -401,7 +405,7 @@ export function ActionModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Número NF</label>
-                      <input defaultValue={item?.numero_nota} required type="number" name="numero_nota" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" />
+                      <input defaultValue={item?.numero_nota} required type="number" name="numero_nota" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
@@ -424,16 +428,23 @@ export function ActionModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Quantos Volumes?</label>
-                  <input defaultValue={item?.volumes || ''} type="number" name="volumes" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" />
+                  <input defaultValue={item?.volumes || ''} type="number" name="volumes" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Valor Final (R$)</label>
-                  <input defaultValue={item?.valor || ''} type="number" step="0.01" name="valor" className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" />
+                  <input defaultValue={item?.valor || ''} type="number" step="0.01" name="valor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
                 </div>
               </div>
+              
+              {((isAdm ? editTipo : item?.tipo) === 'COMPRA') && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Fornecedor</label>
+                  <input defaultValue={item?.fornecedor || ''} type="text" name="fornecedor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Nome do fornecedor" />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Observações</label>
-                <textarea defaultValue={item?.observacao || ''} name="observacao" rows={2} className="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5"></textarea>
+                <textarea defaultValue={item?.observacao || ''} name="observacao" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50"></textarea>
               </div>
             </div>
           )}
@@ -453,8 +464,8 @@ export function ActionModal({
           )}
 
           <div className="pt-6 flex justify-end gap-3">
-            <button type="button" disabled={isSubmitting || isUploading} onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">Cancelar</button>
-            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-lg transition-all shadow-md active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}>
+            <button type="button" disabled={isSubmitting || isUploading} onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
+            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}>
               {isSubmitting || isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin shrink-0" />
