@@ -100,6 +100,9 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
 
   const isAdm = profile?.role === 'admin'
   const transitoCount = (isAdm ? enviando : []).filter(t => !['CONCLUIDA', 'PENDENCIA', 'PENDENCIA_ENVIADA'].includes(t.situacao)).length
+  const aguardandoCount = (isAdm ? enviando : []).filter(t => t.situacao === 'AGUARDANDO_SEPARACAO').length
+  const separadoCount = (isAdm ? enviando : []).filter(t => t.situacao === 'SEPARADO').length
+  const enviadoCount = (isAdm ? enviando : []).filter(t => t.situacao === 'ENVIADO').length
   const pendenciasCount = (isAdm ? enviando : []).filter(t => t.situacao === 'PENDENCIA' || t.situacao === 'PENDENCIA_ENVIADA').length
   const concluidasCount = (isAdm ? enviando : []).filter(t => t.situacao === 'CONCLUIDA').length
 
@@ -110,6 +113,8 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
     const separadorPendenciasCount: Record<string, number> = {};
     let notasEmAndamento = 0;
     let notasComPendencia = 0;
+    let pendenciaAguardandoLoja = 0;
+    let pendenciaEmAnalise = 0;
     const totalLojasOriginadas: Record<string, number> = {};
     
     enviando.forEach(t => {
@@ -122,6 +127,8 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
        
        if (isPendency) {
           notasComPendencia++;
+          if (t.situacao === 'PENDENCIA_ENVIADA') pendenciaEmAnalise++;
+          else pendenciaAguardandoLoja++;
           
           const origemNome = t.origem?.nome || 'Desconhecida';
           lojaPendenciasCount[origemNome] = (lojaPendenciasCount[origemNome] || 0) + 1;
@@ -149,6 +156,8 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
        rankingSeparadores,
        notasEmAndamento,
        notasComPendencia,
+       pendenciaAguardandoLoja,
+       pendenciaEmAnalise,
        taxaErroGlobal: enviando.length > 0 ? ((notasComPendencia / enviando.length) * 100).toFixed(1) : '0.0'
     }
   }, [isAdm, enviando]);
@@ -268,41 +277,68 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* CARD 1 - Estilo Principal Dark (Igual Portal de Devoluções) */}
-            <div className="bg-primary rounded-2xl p-6 text-white shadow-sm relative overflow-hidden flex flex-col justify-between">
+            <div className="bg-primary rounded-2xl p-6 text-white shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="absolute top-0 right-0 p-6 opacity-5"><Truck className="w-32 h-32" /></div>
-              <div className="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center mb-6 relative z-10">
-                 <Truck className="w-5 h-5 text-blue-300" />
-              </div>
-              <div className="relative z-10">
-                 <div className="text-white/60 font-bold uppercase tracking-wider text-[10px] mb-1">Fluxo Operacional (Ativo)</div>
-                 <div className="text-4xl font-bold tracking-tight">
-                   {admStats.notasEmAndamento}
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                 <div>
+                   <div className="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center mb-6">
+                      <Truck className="w-5 h-5 text-blue-300" />
+                   </div>
+                   <div className="text-white/60 font-bold uppercase tracking-wider text-[10px] mb-1">Fluxo Operacional (Ativo)</div>
+                   <div className="text-4xl font-bold tracking-tight">
+                     {admStats.notasEmAndamento}
+                   </div>
                  </div>
-                 <div className="text-white/40 text-[10px] uppercase font-semibold mt-3 flex justify-between items-center">
-                   <span>Mercadorias Rodando</span>
-                   <span className="text-white/80">Hoje</span>
+                 
+                 <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></div>
+                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
+                      <span className="text-white font-bold text-xs ml-1">{aguardandoCount}</span>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Separadas</span>
+                      <span className="text-white font-bold text-xs ml-1">{separadoCount}</span>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Enviadas</span>
+                      <span className="text-white font-bold text-xs ml-1">{enviadoCount}</span>
+                    </div>
                  </div>
               </div>
             </div>
             
             {/* CARD 2 - Estilo Branco Limpo */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between relative">
+            <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-shadow">
               <div className="absolute top-6 right-6">
-                <span className="bg-rose-50 text-rose-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider">
-                  Gargalos
+                <span className="bg-rose-50 text-rose-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  Gargalos <span className="font-semibold text-[10px] ml-1">({admStats.taxaErroGlobal}%)</span>
                 </span>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center mb-6">
-                 <AlertCircle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                 <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Notas Travadas (Pendências)</div>
-                 <div className="text-4xl font-bold text-slate-800 tracking-tight">
-                   {admStats.notasComPendencia}
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                 <div>
+                   <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center mb-6">
+                      <AlertCircle className="w-5 h-5 text-white" />
+                   </div>
+                   <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Notas Travadas (Pendências)</div>
+                   <div className="text-4xl font-bold text-slate-800 tracking-tight">
+                     {admStats.notasComPendencia}
+                   </div>
                  </div>
-                 <div className="text-slate-400 text-[10px] uppercase font-semibold mt-3 flex justify-between items-center">
-                   <span>Taxa de Erro Histórica</span>
-                   <span className="text-rose-500 font-bold">{admStats.taxaErroGlobal}%</span>
+                 
+                 <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    <div className="bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div>
+                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Aguardando Origem</span>
+                      <span className="text-slate-700 font-bold text-xs ml-1">{admStats.pendenciaAguardandoLoja}</span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Resolvidas (Pela Loja)</span>
+                      <span className="text-slate-700 font-bold text-xs ml-1">{admStats.pendenciaEmAnalise}</span>
+                    </div>
                  </div>
               </div>
             </div>
@@ -422,11 +458,40 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
             onClick={() => setFiltroStatus('EM_TRANSITO')}
           >
             <Settings className="absolute -right-12 -bottom-12 w-64 h-64 text-white/5 animate-[spin_40s_linear_infinite] pointer-events-none" />
-            <div className="relative z-10">
-              <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                <Truck className="w-4 h-4" /> Em Trânsito
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div>
+                <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                  <Truck className="w-4 h-4" /> Em Andamento
+                </div>
+                <div className="text-5xl font-display font-bold text-white tracking-wide mt-2">{transitoCount}</div>
               </div>
-              <div className="text-5xl font-display font-bold text-white tracking-wide mt-4">{transitoCount}</div>
+              
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                <div 
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setFiltroStatus('AGUARDANDO_SEPARACAO'); }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></div>
+                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
+                  <span className="text-white font-bold text-xs ml-1">{aguardandoCount}</span>
+                </div>
+                <div 
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setFiltroStatus('SEPARADO'); }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Separado</span>
+                  <span className="text-white font-bold text-xs ml-1">{separadoCount}</span>
+                </div>
+                <div 
+                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setFiltroStatus('ENVIADO'); }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Enviado</span>
+                  <span className="text-white font-bold text-xs ml-1">{enviadoCount}</span>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -5,7 +5,7 @@ import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Load
 import toast from 'react-hot-toast'
 import { createClient } from '@/utils/supabase/client'
 import { CustomSelect } from './CustomSelect'
-import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirTransferencia, avancarSituacao } from '../actions'
+import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirTransferencia, avancarSituacao, adicionarHistoricoPendencia } from '../actions'
 
 interface ActionModalProps {
   isOpen: boolean
@@ -37,6 +37,7 @@ export function ActionModal({
   const [editOrigem, setEditOrigem] = useState('')
   const [editDestino, setEditDestino] = useState('')
   const [editTipo, setEditTipo] = useState('')
+  const [pendenciaAcao, setPendenciaAcao] = useState<'ATUALIZACAO' | 'RESOLUCAO_PARCIAL' | 'RESOLUCAO_TOTAL'>('ATUALIZACAO')
   const supabase = createClient()
 
   const item = enviando.find(x => x.id === transferId) || recebendo.find(x => x.id === transferId)
@@ -47,6 +48,7 @@ export function ActionModal({
       // Reset states
       setConferirStatus('ok')
       setFotosPendencia([])
+      setPendenciaAcao('ATUALIZACAO')
       
       if (actionType === 'editar' && item) {
         setEditOrigem(item.origem_loja_id || '')
@@ -160,8 +162,9 @@ export function ActionModal({
           setIsSubmitting(true)
 
           if (actionType === 'resolver_pendencia') {
-            const obs = formData.get('observacao_resolucao') as string
+            const obs = formData.get('mensagem') as string
             const foto = formData.get('foto') as File
+            const tipoAcao = formData.get('tipoAcao') as string
             if ((!obs || obs.trim() === '') && (!foto || foto.size === 0)) {
               toast.error('Você deve fornecer uma anotação ou uma foto para resolver a pendência.', { id: 'resolver_err' })
               setIsSubmitting(false)
@@ -171,9 +174,9 @@ export function ActionModal({
             try {
               toast.loading('Enviando...', { id: 'resolver' })
               formData.append('transferenciaId', transferId)
-              const res = await resolverPendencia(formData)
+              const res = await adicionarHistoricoPendencia(formData)
               if (!res.success) throw new Error(res.error)
-              toast.success('Pendência resolvida e enviada!', { id: 'resolver' })
+              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Pendência totalmente resolvida!' : 'Atualização enviada!', { id: 'resolver' })
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'resolver' })
@@ -363,13 +366,84 @@ export function ActionModal({
             <div>
               <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3 text-blue-800 text-sm">
                 <AlertCircle className="w-5 h-5 shrink-0" />
-                <p>Você está separando os itens faltantes dessa pendência. Descreva a solução e/ou envie uma foto comprovando.</p>
+                <p>Adicione uma atualização à pendência, informe se foi parcialmente resolvida ou feche a pendência totalmente.</p>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Anotação da Resolução <span className="text-slate-400 font-normal">(Opcional se enviar foto)</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">O que você deseja fazer?</label>
+                <div className="space-y-2">
+                  <input type="hidden" name="tipoAcao" value={pendenciaAcao} />
+                  
+                  <div 
+                    onClick={() => setPendenciaAcao('ATUALIZACAO')}
+                    className={`cursor-pointer w-full flex items-center rounded-lg border p-3 shadow-sm transition-all ${
+                      pendenciaAcao === 'ATUALIZACAO' 
+                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' 
+                        : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 shrink-0 rounded-full border-2 mr-3 flex items-center justify-center transition-colors ${
+                      pendenciaAcao === 'ATUALIZACAO'
+                        ? 'border-blue-600 bg-blue-600'
+                        : 'border-slate-300'
+                    }`}>
+                      <Check className={`w-3 h-3 text-white transition-opacity ${pendenciaAcao === 'ATUALIZACAO' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="block text-sm font-bold text-slate-900 leading-tight">Enviar Atualização</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5">Apenas um aviso. A nota continuará como pendente.</span>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setPendenciaAcao('RESOLUCAO_PARCIAL')}
+                    className={`cursor-pointer w-full flex items-center rounded-lg border p-3 shadow-sm transition-all ${
+                      pendenciaAcao === 'RESOLUCAO_PARCIAL' 
+                        ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' 
+                        : 'border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 shrink-0 rounded-full border-2 mr-3 flex items-center justify-center transition-colors ${
+                      pendenciaAcao === 'RESOLUCAO_PARCIAL'
+                        ? 'border-amber-600 bg-amber-600'
+                        : 'border-slate-300'
+                    }`}>
+                      <Check className={`w-3 h-3 text-white transition-opacity ${pendenciaAcao === 'RESOLUCAO_PARCIAL' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="block text-sm font-bold text-slate-900 leading-tight">Resolução Parcial</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5">Encontrou apenas uma parte? A nota continuará pendente.</span>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setPendenciaAcao('RESOLUCAO_TOTAL')}
+                    className={`cursor-pointer w-full flex items-center rounded-lg border p-3 shadow-sm transition-all ${
+                      pendenciaAcao === 'RESOLUCAO_TOTAL' 
+                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' 
+                        : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 shrink-0 rounded-full border-2 mr-3 flex items-center justify-center transition-colors ${
+                      pendenciaAcao === 'RESOLUCAO_TOTAL'
+                        ? 'border-emerald-600 bg-emerald-600'
+                        : 'border-slate-300'
+                    }`}>
+                      <Check className={`w-3 h-3 text-white transition-opacity ${pendenciaAcao === 'RESOLUCAO_TOTAL' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="block text-sm font-bold text-slate-900 leading-tight">Resolução Total</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5 font-semibold">Tudo resolvido! A nota será fechada.</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mensagem <span className="text-slate-400 font-normal">(Opcional se enviar foto)</span></label>
                 <textarea 
-                  name="observacao_resolucao" 
+                  name="mensagem" 
                   rows={3} 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" 
                   placeholder="Ex: Encontrado as 2 caixas faltando, seguem na próxima viagem."
@@ -378,7 +452,7 @@ export function ActionModal({
 
               <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4" />
-                Foto da Pendência <span className="text-slate-400 font-normal">(Opcional se preencher anotação)</span>
+                Foto da Pendência <span className="text-slate-400 font-normal">(Opcional)</span>
               </label>
               <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>

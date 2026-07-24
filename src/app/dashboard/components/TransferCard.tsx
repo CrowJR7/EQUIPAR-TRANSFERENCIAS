@@ -3,6 +3,7 @@ import {
   UserX, Package, ChevronUp, ChevronDown, Trash2 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { PendencyTimeline } from './PendencyTimeline'
 
 export const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -302,28 +303,7 @@ export function TransferCard({
                     </div>
                   )}
                   <div className="text-red-900 leading-relaxed font-medium mb-3">
-                    {item.observacao_pendencia ? (
-                      item.observacao_pendencia.includes('||FOTOS||') ? (
-                        <>
-                          <p className="mb-3 whitespace-pre-wrap">{item.observacao_pendencia.split('||FOTOS||')[0]}</p>
-                          <div className="mt-4">
-                            <strong className="block text-red-700 mb-2 font-bold text-[10px] uppercase tracking-wider">Fotos Anexadas</strong>
-                            <div className="flex gap-2 flex-wrap">
-                              {item.observacao_pendencia.split('||FOTOS||')[1].split(',').map((url: string, i: number) => (
-                                <a key={i} href={url.trim()} target="_blank" rel="noreferrer" className="inline-block border-2 border-red-200 rounded-lg overflow-hidden hover:opacity-80 transition-opacity hover:shadow-md">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={url.trim()} alt="Anexo Pendência" className="h-32 w-auto object-cover" />
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="whitespace-pre-wrap">{item.observacao_pendencia}</p>
-                      )
-                    ) : (
-                      <p className="whitespace-pre-wrap italic opacity-80">Nenhum motivo preenchido ou foto enviada.</p>
-                    )}
+                    <PendencyTimeline transferenciaId={item.id} observacaoLegacy={item.observacao_pendencia} />
                   </div>
                   {item.foto_pendencia_url && (
                     <div className="mt-4">

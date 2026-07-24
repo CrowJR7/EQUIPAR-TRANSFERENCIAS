@@ -207,6 +207,26 @@ export async function avancarSituacao(
       console.error('Falha evento:', eventError)
     }
 
+    if (evento === 'PENDENCIA_ABERTA') {
+      let fotosStr = null
+      let msg = dados.observacao || ''
+      if (msg.includes('||FOTOS||')) {
+        const parts = msg.split('||FOTOS||')
+        msg = parts[0].trim()
+        fotosStr = parts[1].trim()
+      }
+      
+      const { data: profile } = await supabaseAdmin.from('profiles').select('nome').eq('id', user.id).single()
+      await supabaseAdmin.from('historico_pendencias').insert({
+        transferencia_id: transferenciaId,
+        perfil_id: user.id,
+        nome_usuario: profile?.nome || 'Usuário',
+        mensagem: msg || 'Pendência aberta.',
+        fotos: fotosStr,
+        tipo_acao: 'ABERTURA'
+      })
+    }
+
     revalidatePath('/dashboard')
     return { success: true }
   } catch (err: any) {
@@ -318,7 +338,7 @@ export async function editarTransferencia(formData: FormData) {
     if (valor) updateData.valor = parseFloat(valor as string)
     
     const observacao = formData.get('observacao')
-    if (observacao !== null) updateData.observacao = observacao as string
+    if (observacao !== null) updateData.observacao_pendencia = observacao as string
     
     const fornecedor = formData.get('fornecedor')
     if (fornecedor !== null) updateData.fornecedor = (fornecedor as string).trim() || null
@@ -438,4 +458,79 @@ export async function obterHistorico(id: string) {
 
   if (error) throw new Error('Erro ao buscar histórico')
   return data
+}
+
+export async function adicionarHistoricoPendencia(formData: FormData) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Sessão expirada' }
+
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role, nome').eq('id', user.id).single()
+    if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const transferenciaId = formData.get('transferenciaId') as string
+    const mensagem = formData.get('mensagem') as string
+    const tipoAcao = formData.get('tipoAcao') as string
+    const foto = formData.get('foto') as File | null
+    
+    if (!transferenciaId || !mensagem || !tipoAcao) {
+      return { success: false, error: 'Campos obrigatórios faltando' }
+    }
+
+    let fotosStr = ''
+    if (foto && foto.size > 0) {
+      const fileExt = foto.name.split('.').pop()
+      const fileName = `${transferenciaId}_${Date.now()}.${fileExt}`
+      const { error: uploadError } = await supabase.storage
+        .from('fotos_pendencias')
+        .upload(fileName, foto)
+      
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
+        fotosStr = publicUrlData.publicUrl
+      }
+    }
+
+    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    
+    // Inserir no histórico
+    const { error: histError } = await supabaseAdmin.from('historico_pendencias').insert({
+      transferencia_id: transferenciaId,
+      perfil_id: user.id,
+      nome_usuario: profile.nome || 'Usuário',
+      mensagem,
+      fotos: fotosStr || null,
+      tipo_acao: tipoAcao
+    })
+
+    if (histError) throw new Error(histError.message)
+
+    // Se for resolução total, altera o status da nota
+    if (tipoAcao === 'RESOLUCAO_TOTAL') {
+      await supabaseAdmin.from('transferencias')
+        .update({
+          situacao: 'CONCLUIDA',
+          data_concluida: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', transferenciaId)
+        
+      await supabaseAdmin.from('transferencia_eventos').insert({
+        transferencia_id: transferenciaId,
+        tipo_evento: 'PENDENCIA_RESOLVIDA',
+        usuario_id: user.id
+      })
+    } else {
+      await supabaseAdmin.from('transferencia_eventos').insert({
+        transferencia_id: transferenciaId,
+        tipo_evento: 'ATUALIZACAO_PENDENCIA',
+        usuario_id: user.id
+      })
+    }
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado' }
+  }
 }
