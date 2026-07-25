@@ -61,6 +61,7 @@ export const metadata: Metadata = {
 }
 
 import { Toaster } from 'react-hot-toast'
+import SupabaseProvider from '@/components/SupabaseProvider'
 
 export default function RootLayout({
   children,
@@ -74,17 +75,22 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body suppressHydrationWarning className="font-sans antialiased bg-background text-foreground min-h-screen">
-        <Toaster position="top-center" toastOptions={{
-          style: {
-            background: '#18181b', // zinc-900
-            color: '#fff',
-            border: '1px solid #27272a', // zinc-800
-            padding: '16px 24px',
-            fontSize: '16px',
-            fontWeight: '600'
-          }
-        }} />
-        {children}
+        <SupabaseProvider>
+          <Toaster 
+            position="top-right" 
+            containerStyle={{ top: 80 }}
+            toastOptions={{
+              style: {
+                background: '#18181b', // zinc-900
+              color: '#fff',
+              border: '1px solid #27272a', // zinc-800
+              padding: '16px 24px',
+              fontSize: '16px',
+              fontWeight: '600'
+            }
+          }} />
+          {children}
+        </SupabaseProvider>
       </body>
     </html>
   )

@@ -1,6 +1,6 @@
 import { 
   Truck, AlertCircle, CheckCircle, XCircle, Flag, Clock, 
-  UserX, Package, ChevronUp, ChevronDown, Trash2 
+  UserX, User, Package, ChevronUp, ChevronDown, Trash2 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PendencyTimeline } from './PendencyTimeline'
@@ -32,7 +32,7 @@ interface TransferCardProps {
   activeTab: 'enviando' | 'recebendo' | 'pendencias' | 'historico';
   isExpanded: boolean;
   toggleExpand: (id: string) => void;
-  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => void;
+  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => void;
   avancarSituacao: (id: string, acao: 'separar' | 'enviar' | 'receber' | 'conferir' | 'resolver_pendencia' | 'receber_pendencia', dados?: any) => Promise<{ success: boolean, error?: string }>;
   index?: number;
 }
@@ -52,6 +52,8 @@ export function TransferCard({
   const isOrigin = isAdm ? true : item.origem_loja_id === profile?.loja_id
   const isDest = isAdm ? true : item.destino_loja_id === profile?.loja_id
   const isPendencyState = item.situacao === 'PENDENCIA' || item.situacao === 'PENDENCIA_ENVIADA'
+
+  const hasPendencyHistory = isPendencyState || (item.observacao_pendencia && item.observacao_pendencia.trim() !== '');
 
   // Tema Base - Depende da Aba (Enviando vs Recebendo)
   let hoverBgClass = 'group-hover:bg-blue-600 group-hover:border-blue-600 group-hover:text-white'
@@ -161,22 +163,22 @@ export function TransferCard({
             )}
           </div>
           
-          <div className="text-sm text-slate-500 font-medium flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-slate-400"/> {formatDate(item.created_at)}</span>
-            <span className="flex items-center gap-1.5"><UserX className="w-4 h-4 text-slate-400"/> Emitida por: <span className="text-slate-700">{item.emitida_por || 'N/A'}</span></span>
-            {item.volumes && <span className="flex items-center gap-1.5"><Package className="w-4 h-4 text-slate-400"/> {item.volumes} Volumes</span>}
+          <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-4 opacity-80">
+            <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400"/> {formatDate(item.created_at)}</span>
+            <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> Emitida por: <span className="text-slate-700 font-bold">{(item.emitida_por || 'N/A').replace(/@.*/, '').toUpperCase()}</span></span>
+            {item.volumes && <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-slate-400"/> <span className="text-slate-700 font-bold">{item.volumes}</span> Volumes</span>}
           </div>
         </div>
         
         {/* Bloco 3: Botões de Ação */}
         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
           {isOrigin && item.situacao === 'AGUARDANDO_SEPARACAO' && (
-            <button onClick={() => openActionModal(item.id, 'separar')} className="px-5 py-2.5 text-sm bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
+            <button onClick={() => openActionModal(item.id, 'separar')} className="px-5 py-2.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Separar
             </button>
           )}
           {isOrigin && item.situacao === 'SEPARADO' && (
-            <button onClick={() => openActionModal(item.id, 'enviar')} className="px-5 py-2.5 text-sm bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
+            <button onClick={() => openActionModal(item.id, 'enviar')} className="px-5 py-2.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Enviar
             </button>
           )}
@@ -190,35 +192,40 @@ export function TransferCard({
                 success: 'Mercadoria recebida!',
                 error: (e: any) => `Erro: ${e.message}`
               })
-            }} className="px-5 py-2.5 text-sm bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
+            }} className="px-5 py-2.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Receber
             </button>
           )}
           {isDest && item.situacao === 'RECEBIDO' && (
-            <button onClick={() => openActionModal(item.id, 'conferir')} className="px-5 py-2.5 text-sm bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
+            <button onClick={() => openActionModal(item.id, 'conferir')} className="px-5 py-2.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Conferir
             </button>
           )}
 
           {isOrigin && item.situacao === 'PENDENCIA' && (
-            <button onClick={() => openActionModal(item.id, 'resolver_pendencia')} className="px-4 py-2.5 text-sm bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
+            <button onClick={() => openActionModal(item.id, 'resolver_pendencia')} className="px-5 py-2.5 text-sm bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Responder
             </button>
           )}
 
           {isDest && item.situacao === 'PENDENCIA_ENVIADA' && (
-            <button onClick={() => {
-              toast.promise(avancarSituacao(item.id, 'receber_pendencia').then((res: any) => {
-                if (res?.error) throw new Error(res.error)
-                return res
-              }), {
-                loading: 'Confirmando...',
-                success: 'Pendência resolvida!',
-                error: (e: any) => `Erro: ${e.message}`
-              })
-            }} className="px-4 py-2.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95">
-              Confirmar Recebimento
-            </button>
+            <>
+              <button onClick={() => {
+                toast.promise(avancarSituacao(item.id, 'receber_pendencia').then((res: any) => {
+                  if (res?.error) throw new Error(res.error)
+                  return res
+                }), {
+                  loading: 'Finalizando...',
+                  success: 'Pendência resolvida e nota finalizada!',
+                  error: (e: any) => `Erro: ${e.message}`
+                })
+              }} className="px-4 py-2.5 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" /> Aceitar & Finalizar
+              </button>
+              <button onClick={() => openActionModal(item.id, 'recusar_resolucao')} className="px-4 py-2.5 text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">
+                <XCircle className="w-4 h-4" /> Recusar / Reabrir
+              </button>
+            </>
           )}
           
           <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
@@ -265,13 +272,15 @@ export function TransferCard({
       >
         <div className="overflow-hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm pl-2 pb-2">
-            {isPendencyState && (
-              <div className="col-span-full mb-2 bg-gradient-to-r from-red-50 to-rose-50 border border-red-100/80 rounded-xl p-5 flex gap-4 shadow-sm">
-                <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+            {hasPendencyHistory && (
+              <div className={`col-span-full mb-2 border rounded-xl p-5 flex gap-4 shadow-sm ${isPendencyState ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-100/80' : 'bg-slate-50 border-slate-200'}`}>
+                <AlertCircle className={`w-6 h-6 shrink-0 mt-0.5 ${isPendencyState ? 'text-red-500' : 'text-slate-400'}`} />
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
-                    <strong className="block text-red-700 font-bold uppercase tracking-wide text-xs">Motivo da Pendência</strong>
-                    {item.prazo_pendencia && (
+                    <strong className={`block font-bold uppercase tracking-wide text-xs ${isPendencyState ? 'text-red-700' : 'text-slate-600'}`}>
+                      {item.tipo === 'MOD_1' ? 'Observação da Transferência (MOD 1)' : (isPendencyState ? 'Motivo da Pendência' : 'Histórico de Pendência (Resolvida)')}
+                    </strong>
+                    {item.prazo_pendencia && isPendencyState && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${isSlaAtrasado(item.prazo_pendencia) ? 'bg-red-600 text-white animate-pulse' : 'bg-white text-red-700 border border-red-200'}`}>
                         <Clock className="w-3 h-3" />
                         {isSlaAtrasado(item.prazo_pendencia) ? 'PRAZO VENCIDO' : `Vence em: ${new Date(item.prazo_pendencia).toLocaleDateString()}`}
@@ -293,7 +302,7 @@ export function TransferCard({
 
                   {item.situacao === 'PENDENCIA_ENVIADA' && isDest && !isAdm && (
                     <div className="mb-3 p-3 bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-bold flex items-center gap-2">
-                      <span>✅ A loja de origem ({item.origem?.nome}) enviou a resposta da pendência. Verifique as fotos/anotações abaixo e clique em <strong>[ Confirmar Recebimento ]</strong>.</span>
+                      <span>✅ A loja de origem ({item.origem?.nome}) enviou a resposta da pendência. Verifique se o problema foi totalmente resolvido e clique em <strong>[ Aceitar & Finalizar ]</strong> ou <strong>[ Recusar / Reabrir ]</strong>.</span>
                     </div>
                   )}
 
@@ -302,13 +311,13 @@ export function TransferCard({
                       <span>ℹ️ Você enviou a resposta desta pendência. Aguardando a loja de destino ({item.destino?.nome}) conferir a solução e confirmar o recebimento.</span>
                     </div>
                   )}
-                  <div className="text-red-900 leading-relaxed font-medium mb-3">
+                  <div className={`${isPendencyState ? 'text-red-900' : 'text-slate-700'} leading-relaxed font-medium mb-3`}>
                     <PendencyTimeline transferenciaId={item.id} observacaoLegacy={item.observacao_pendencia} />
                   </div>
                   {item.foto_pendencia_url && (
                     <div className="mt-4">
-                      <strong className="block text-red-700 mb-2 font-bold text-[10px] uppercase tracking-wider">Foto da Resolução</strong>
-                      <a href={item.foto_pendencia_url} target="_blank" rel="noreferrer" className="inline-block border-2 border-red-200 rounded-lg overflow-hidden hover:opacity-80 transition-opacity hover:shadow-md">
+                      <strong className={`block mb-2 font-bold text-[10px] uppercase tracking-wider ${isPendencyState ? 'text-red-700' : 'text-slate-500'}`}>Foto da Resolução</strong>
+                      <a href={item.foto_pendencia_url} target="_blank" rel="noreferrer" className={`inline-block border-2 rounded-lg overflow-hidden hover:opacity-80 transition-opacity hover:shadow-md ${isPendencyState ? 'border-red-200' : 'border-slate-200'}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={item.foto_pendencia_url} alt="Foto da Pendência" className="h-32 w-auto object-cover" />
                       </a>

@@ -117,13 +117,13 @@ export function ActionModal({
                       <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
                         <Check className="w-4 h-4" />
                       </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
-                        <div className="flex items-center justify-between space-x-2 mb-1">
-                          <div className="font-bold text-slate-700 text-sm">{evt.tipo_evento.replace(/_/g, ' ')}</div>
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-1.5rem)] p-3 md:p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
+                        <div className="flex flex-col gap-1 mb-2">
+                          <div className="font-bold text-slate-700 text-sm leading-tight">{evt.tipo_evento.replace(/_/g, ' ')}</div>
                           <time className="text-xs text-slate-400 font-medium">{new Date(evt.created_at).toLocaleString()}</time>
                         </div>
                         <div className="text-slate-500 text-xs">
-                          Usuário: <span className="font-semibold text-slate-700">{evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema'}</span>
+                          Usuário: <span className="font-semibold text-slate-700">{(evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema').replace(/@.*/, '').toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
@@ -150,6 +150,7 @@ export function ActionModal({
           {actionType === 'enviar' && 'Registrar Envio'}
           {actionType === 'conferir' && 'Conferir Mercadoria'}
           {actionType === 'resolver_pendencia' && 'Resolver Pendência'}
+          {actionType === 'recusar_resolucao' && 'Recusar Resolução'}
           {actionType === 'editar' && 'Editar Transferência'}
           {actionType === 'cancelar' && 'Cancelar Transferência'}
           {actionType === 'excluir' && 'Excluir Transferência'}
@@ -161,11 +162,18 @@ export function ActionModal({
           if (!transferId || !actionType || isUploading) return
           setIsSubmitting(true)
 
-          if (actionType === 'resolver_pendencia') {
+          if (actionType === 'resolver_pendencia' || actionType === 'recusar_resolucao') {
             const obs = formData.get('mensagem') as string
             const foto = formData.get('foto') as File
             const tipoAcao = formData.get('tipoAcao') as string
-            if ((!obs || obs.trim() === '') && (!foto || foto.size === 0)) {
+            
+            if (actionType === 'recusar_resolucao' && (!obs || obs.trim() === '')) {
+              toast.error('Você deve fornecer um motivo para a recusa.', { id: 'resolver_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            if (actionType === 'resolver_pendencia' && (!obs || obs.trim() === '') && (!foto || foto.size === 0)) {
               toast.error('Você deve fornecer uma anotação ou uma foto para resolver a pendência.', { id: 'resolver_err' })
               setIsSubmitting(false)
               return
@@ -176,7 +184,7 @@ export function ActionModal({
               formData.append('transferenciaId', transferId)
               const res = await adicionarHistoricoPendencia(formData)
               if (!res.success) throw new Error(res.error)
-              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Pendência totalmente resolvida!' : 'Atualização enviada!', { id: 'resolver' })
+              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Resolução enviada!' : (tipoAcao === 'RECUSAR_RESOLUCAO' ? 'Recusa enviada!' : 'Atualização enviada!'), { id: 'resolver' })
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'resolver' })
@@ -458,6 +466,25 @@ export function ActionModal({
             </div>
           )}
           
+          {actionType === 'recusar_resolucao' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="RECUSAR_RESOLUCAO" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Recusar Resolução:</strong> A nota voltará para PENDÊNCIA e a loja de origem será notificada. Explique o motivo abaixo.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo da Recusa</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Ainda faltam 2 itens que não foram enviados."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-600/10 file:text-red-600 hover:file:bg-red-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+          
           {actionType === 'editar' && (
             <div className="space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-sm text-amber-800 flex gap-3">
@@ -518,7 +545,7 @@ export function ActionModal({
               )}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Observações</label>
-                <textarea defaultValue={item?.observacao || ''} name="observacao" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50"></textarea>
+                <textarea defaultValue={item?.observacao_pendencia || ''} name="observacao" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50"></textarea>
               </div>
             </div>
           )}

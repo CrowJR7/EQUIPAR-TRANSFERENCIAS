@@ -4,7 +4,7 @@ import { criarTransferencia, avancarSituacao, resolverPendencia, editarTransfere
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { AlertCircle, Package, CheckCircle, Truck, Settings, BarChart3, ListFilter, UserX, Store, Loader2 } from 'lucide-react'
+import { AlertCircle, Package, CheckCircle, Truck, Settings, BarChart3, ListFilter, UserX, Store, Loader2, Plus, User } from 'lucide-react'
 import { TransferCard } from './TransferCard'
 import { CustomSelect } from './CustomSelect'
 import { DashboardFilters } from './DashboardFilters'
@@ -17,6 +17,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
   const [novaOrigem, setNovaOrigem] = useState('')
   const [novoDestino, setNovoDestino] = useState('')
   const [tipoTransf, setTipoTransf] = useState('INTERNA')
+  const [valorInput, setValorInput] = useState('')
   const router = useRouter()
   const supabase = createClient()
   
@@ -38,7 +39,24 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transferencias' }, (payload) => {
         
         if (payload.eventType === 'INSERT' && payload.new.destino_loja_id === profile?.loja_id) {
-          toast.success(`Nova transferência (NF: ${payload.new.numero_nota}) destinada à sua loja!`, { duration: 5000, icon: '📦' })
+          toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-blue-100 flex overflow-hidden ring-1 ring-black/5`}>
+              <div className="p-4 flex items-start gap-4 flex-1">
+                <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                  <Package className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-800">Nova Transferência</p>
+                  <p className="mt-1 text-sm text-slate-500">NF: {payload.new.numero_nota} destinada à sua loja!</p>
+                </div>
+              </div>
+              <div className="flex border-l border-slate-100">
+                <button onClick={() => toast.dismiss(t.id)} className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-blue-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                  OK
+                </button>
+              </div>
+            </div>
+          ), { duration: Infinity, position: 'top-right' })
         }
         
         if (payload.eventType === 'UPDATE') {
@@ -47,12 +65,50 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
           if (wasStatusChanged && (payload.new.situacao === 'PENDENCIA' || payload.new.situacao === 'PENDENCIA_ENVIADA')) {
             const isMine = payload.new.origem_loja_id === profile?.loja_id || payload.new.destino_loja_id === profile?.loja_id
             if (isMine || profile?.role === 'admin') {
-              toast.error(`Pendência registrada na NF: ${payload.new.numero_nota}`, { duration: 6000 })
+              toast.custom((t) => (
+                <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-red-100 flex overflow-hidden ring-1 ring-black/5`}>
+                  <div className="p-4 flex items-start gap-4 flex-1">
+                    <div className="bg-red-100 p-2 rounded-xl text-red-600">
+                      <AlertCircle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-slate-800">Nova Pendência</p>
+                      <p className="mt-1 text-sm text-slate-500">Registrada na NF: {payload.new.numero_nota}</p>
+                    </div>
+                  </div>
+                  <div className="flex border-l border-slate-100">
+                    <button onClick={() => toast.dismiss(t.id)} className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-red-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
+                      OK
+                    </button>
+                  </div>
+                </div>
+              ), { duration: Infinity, position: 'top-right' })
             }
+          }
+
+          if (wasStatusChanged && payload.new.situacao === 'ENVIADO' && payload.new.destino_loja_id === profile?.loja_id) {
+            toast.custom((t) => (
+              <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-amber-100 flex overflow-hidden ring-1 ring-black/5`}>
+                <div className="p-4 flex items-start gap-4 flex-1">
+                  <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+                    <Truck className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-800">Mercadoria em Trânsito</p>
+                    <p className="mt-1 text-sm text-slate-500">A NF: {payload.new.numero_nota} foi despachada para a sua loja!</p>
+                  </div>
+                </div>
+                <div className="flex border-l border-slate-100">
+                  <button onClick={() => toast.dismiss(t.id)} className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-amber-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors">
+                    OK
+                  </button>
+                </div>
+              </div>
+            ), { duration: Infinity, position: 'top-right' })
           }
           
           if (wasStatusChanged && payload.new.situacao === 'CONCLUIDA' && payload.new.origem_loja_id === profile?.loja_id) {
-            toast.success(`A NF: ${payload.new.numero_nota} foi recebida e conferida com sucesso!`, { duration: 5000, icon: '✅' })
+            toast.success(`A NF: ${payload.new.numero_nota} foi recebida e conferida com sucesso!`, { duration: 5000, icon: '✅', position: 'top-right' })
           }
         }
 
@@ -68,10 +124,10 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean,
     transferId: string | null,
-    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | null
+    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | null
   }>({ isOpen: false, transferId: null, actionType: null })
 
-  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => {
+  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => {
     setActionModal({ isOpen: true, transferId: id, actionType: type })
   }
 
@@ -232,7 +288,17 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
     return filteredTransfers.slice(start, start + itemsPerPage)
   }, [filteredTransfers, currentPage])
 
-
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let v = e.target.value.replace(/\D/g, '')
+    if (!v) {
+      setValorInput('')
+      return
+    }
+    v = (Number(v) / 100).toFixed(2)
+    v = v.replace('.', ',')
+    v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.')
+    setValorInput(v)
+  }
 
   return (
     <div className="space-y-6">
@@ -245,10 +311,9 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
           </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-md flex items-center gap-2"
+          className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-lg hover:-translate-y-0.5 active:scale-95 flex items-center gap-2"
         >
-          <Package className="w-5 h-5" />
-          Nova Transferência
+          <Plus className="w-5 h-5 stroke-[2.5]" /> Nova Transferência
         </button>
       </div>
 
@@ -276,35 +341,39 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* CARD 1 - Estilo Principal Dark (Igual Portal de Devoluções) */}
-            <div className="bg-primary rounded-2xl p-6 text-white shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div className="absolute top-0 right-0 p-6 opacity-5"><Truck className="w-32 h-32" /></div>
+            {/* CARD 1 - Estilo Branco Destaque */}
+            <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-shadow">
+              <div className="absolute top-6 right-6">
+                <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                  Geral
+                </span>
+              </div>
               <div className="relative z-10 flex flex-col h-full justify-between">
                  <div>
-                   <div className="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center mb-6">
-                      <Truck className="w-5 h-5 text-blue-300" />
+                   <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center mb-6 shadow-sm shadow-blue-200">
+                      <Truck className="w-5 h-5 text-white" />
                    </div>
-                   <div className="text-white/60 font-bold uppercase tracking-wider text-[10px] mb-1">Fluxo Operacional (Ativo)</div>
-                   <div className="text-4xl font-bold tracking-tight">
+                   <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Fluxo Operacional (Ativo)</div>
+                   <div className="text-4xl font-bold text-slate-800 tracking-tight">
                      {admStats.notasEmAndamento}
                    </div>
                  </div>
                  
-                 <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                 <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                    <div className="bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></div>
-                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
-                      <span className="text-white font-bold text-xs ml-1">{aguardandoCount}</span>
+                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
+                      <span className="text-slate-700 font-bold text-xs ml-1">{aguardandoCount}</span>
                     </div>
-                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                    <div className="bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Separadas</span>
-                      <span className="text-white font-bold text-xs ml-1">{separadoCount}</span>
+                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Separadas</span>
+                      <span className="text-slate-700 font-bold text-xs ml-1">{separadoCount}</span>
                     </div>
-                    <div className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
+                    <div className="bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                      <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Enviadas</span>
-                      <span className="text-white font-bold text-xs ml-1">{enviadoCount}</span>
+                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Enviadas</span>
+                      <span className="text-slate-700 font-bold text-xs ml-1">{enviadoCount}</span>
                     </div>
                  </div>
               </div>
@@ -344,24 +413,36 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
             </div>
 
             {/* CARD 3 - Novo para fechar as 3 colunas padrão */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between relative">
-              <div className="absolute top-6 right-6">
-                <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider">
+            <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between relative hover:shadow-md transition-shadow">
+              <div className="absolute top-6 right-6 flex flex-col items-end">
+                <span className="bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider mb-4">
                   Volume
                 </span>
+                {/* Sparkline Decorativo */}
+                <div className="flex items-end gap-1 h-12 opacity-80 mt-1">
+                  <div className="w-2 bg-indigo-100 rounded-t-sm h-4"></div>
+                  <div className="w-2 bg-indigo-100 rounded-t-sm h-6"></div>
+                  <div className="w-2 bg-indigo-200 rounded-t-sm h-5"></div>
+                  <div className="w-2 bg-indigo-300 rounded-t-sm h-8"></div>
+                  <div className="w-2 bg-indigo-400 rounded-t-sm h-7"></div>
+                  <div className="w-2 bg-indigo-500 rounded-t-sm h-12"></div>
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center mb-6">
-                 <Package className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                 <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Total de Transferências</div>
-                 <div className="text-4xl font-bold text-slate-800 tracking-tight">
-                   {enviando.length}
-                 </div>
-                 <div className="text-slate-400 text-[10px] uppercase font-semibold mt-3 flex justify-between items-center">
-                   <span>Histórico Completo</span>
-                   <span className="text-indigo-500 font-bold">100%</span>
-                 </div>
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center mb-6 shadow-sm shadow-indigo-200">
+                     <Package className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Total de Transferências</div>
+                  <div className="text-4xl font-bold text-slate-800 tracking-tight">
+                    {enviando.length}
+                  </div>
+                </div>
+                
+                <div className="mt-6 border-t border-slate-100 pt-4 flex justify-between items-center">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Histórico Completo</span>
+                  <span className="text-indigo-500 font-bold text-xs">100%</span>
+                </div>
               </div>
             </div>
 
@@ -392,7 +473,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                         <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-50/80 to-transparent -z-10 transition-all duration-1000 ease-out rounded-r-full" style={{ width: `${pct}%` }}></div>
                         
                         <div className="flex items-center gap-3.5 z-10">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${medalClass}`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${medalClass}`}>
                             {i + 1}º
                           </div>
                           <div>
@@ -400,7 +481,9 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                             <div className="text-[11px] text-slate-500 font-medium">{loja.taxaErro.toFixed(1)}% de falha ({loja.pendencias} pendências em {loja.total} envios)</div>
                           </div>
                         </div>
-                        <div className="font-display font-bold text-red-500 text-xl z-10 pr-2">{loja.pendencias}</div>
+                        <div className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-sm font-bold shadow-sm shadow-red-100 border border-red-100 z-10 whitespace-nowrap">
+                          {loja.pendencias}
+                        </div>
                       </div>
                     )
                   })
@@ -431,12 +514,19 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                         <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-50/80 to-transparent -z-10 transition-all duration-1000 ease-out rounded-r-full" style={{ width: `${pct}%` }}></div>
                         
                         <div className="flex items-center gap-3.5 z-10">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${medalClass}`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${medalClass}`}>
                             {i + 1}º
                           </div>
-                          <div className="font-bold text-slate-800 tracking-tight">{nome}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div className="font-bold text-slate-800 tracking-tight">{nome}</div>
+                          </div>
                         </div>
-                        <div className="font-display font-bold text-orange-600 text-xl z-10 pr-2">{count}</div>
+                        <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-sm font-bold shadow-sm shadow-orange-100 border border-orange-100 z-10 whitespace-nowrap">
+                          {count}
+                        </div>
                       </div>
                     )
                   })
@@ -453,43 +543,49 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
           {isAdm && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-2 animate-in fade-in slide-in-from-top-2">
           {/* Card Em Trânsito - Destacado */}
+          {/* Card Em Trânsito - Destacado */}
           <div 
-            className="relative overflow-hidden bg-primary rounded-2xl p-6 flex flex-col justify-between shadow-lg cursor-pointer group transition-all hover:-translate-y-1" 
+            className="relative overflow-hidden bg-white border border-blue-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm cursor-pointer group transition-all hover:-translate-y-1 hover:shadow-md" 
             onClick={() => setFiltroStatus('EM_TRANSITO')}
           >
-            <Settings className="absolute -right-12 -bottom-12 w-64 h-64 text-white/5 animate-[spin_40s_linear_infinite] pointer-events-none" />
+            <div className="absolute top-6 right-6">
+              <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                Geral
+              </span>
+            </div>
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div>
-                <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                  <Truck className="w-4 h-4" /> Em Andamento
+                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center mb-6 shadow-sm shadow-blue-200">
+                  <Truck className="w-5 h-5 text-white" />
                 </div>
-                <div className="text-5xl font-display font-bold text-white tracking-wide mt-2">{transitoCount}</div>
+                <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Em Andamento</div>
+                <div className="text-5xl font-display font-bold text-slate-800 tracking-tight mt-2">{transitoCount}</div>
               </div>
               
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
                 <div 
-                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
                   onClick={(e) => { e.stopPropagation(); setFiltroStatus('AGUARDANDO_SEPARACAO'); }}
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></div>
-                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
-                  <span className="text-white font-bold text-xs ml-1">{aguardandoCount}</span>
+                  <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Aguardando</span>
+                  <span className="text-slate-700 font-bold text-xs ml-1">{aguardandoCount}</span>
                 </div>
                 <div 
-                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
                   onClick={(e) => { e.stopPropagation(); setFiltroStatus('SEPARADO'); }}
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Separado</span>
-                  <span className="text-white font-bold text-xs ml-1">{separadoCount}</span>
+                  <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Separado</span>
+                  <span className="text-slate-700 font-bold text-xs ml-1">{separadoCount}</span>
                 </div>
                 <div 
-                  className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
                   onClick={(e) => { e.stopPropagation(); setFiltroStatus('ENVIADO'); }}
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                  <span className="text-white/70 text-[10px] font-medium uppercase tracking-wider">Enviado</span>
-                  <span className="text-white font-bold text-xs ml-1">{enviadoCount}</span>
+                  <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Enviado</span>
+                  <span className="text-slate-700 font-bold text-xs ml-1">{enviadoCount}</span>
                 </div>
               </div>
             </div>
@@ -500,11 +596,27 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
             className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md transition-all hover:-translate-y-1" 
             onClick={() => setFiltroStatus('PENDENCIA')}
           >
-            <div className="relative z-10">
-              <div className="text-red-500 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" /> Pendências
+            <div className="absolute top-6 right-6 flex flex-col items-end">
+              <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider mb-4">
+                Urgência
+              </span>
+              <div className="flex items-end gap-1 h-12 opacity-80 mt-1">
+                <div className="w-2 bg-red-100 rounded-t-sm h-4"></div>
+                <div className="w-2 bg-red-200 rounded-t-sm h-8"></div>
+                <div className="w-2 bg-red-300 rounded-t-sm h-5"></div>
+                <div className="w-2 bg-red-400 rounded-t-sm h-10"></div>
+                <div className="w-2 bg-red-500 rounded-t-sm h-6"></div>
+                <div className="w-2 bg-red-600 rounded-t-sm h-12"></div>
               </div>
-              <div className="text-5xl font-display font-bold text-slate-800 tracking-wide mt-4">{pendenciasCount}</div>
+            </div>
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center mb-6 shadow-sm shadow-red-200">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Pendências</div>
+                <div className="text-5xl font-display font-bold text-slate-800 tracking-tight mt-2">{pendenciasCount}</div>
+              </div>
             </div>
           </div>
 
@@ -513,11 +625,27 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
             className="relative overflow-hidden bg-white border border-gray-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md transition-all hover:-translate-y-1" 
             onClick={() => setFiltroStatus('CONCLUIDA')}
           >
-            <div className="relative z-10">
-              <div className="text-emerald-500 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" /> Concluídas
+            <div className="absolute top-6 right-6 flex flex-col items-end">
+              <span className="bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider mb-4">
+                Sucesso
+              </span>
+              <div className="flex items-end gap-1 h-12 opacity-80 mt-1">
+                <div className="w-2 bg-emerald-100 rounded-t-sm h-3"></div>
+                <div className="w-2 bg-emerald-200 rounded-t-sm h-5"></div>
+                <div className="w-2 bg-emerald-300 rounded-t-sm h-7"></div>
+                <div className="w-2 bg-emerald-400 rounded-t-sm h-8"></div>
+                <div className="w-2 bg-emerald-500 rounded-t-sm h-10"></div>
+                <div className="w-2 bg-emerald-600 rounded-t-sm h-12"></div>
               </div>
-              <div className="text-5xl font-display font-bold text-slate-800 tracking-wide mt-4">{concluidasCount}</div>
+            </div>
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center mb-6 shadow-sm shadow-emerald-200">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mb-1">Concluídas</div>
+                <div className="text-5xl font-display font-bold text-slate-800 tracking-tight mt-2">{concluidasCount}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -730,6 +858,7 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                 } else {
                   toast.success('Transferência criada!', { id: 'nova_transf' })
                   setIsModalOpen(false)
+                  setValorInput('')
                 }
               } catch (e: any) {
                 toast.error('Erro inesperado: ' + e.message, { id: 'nova_transf' })
@@ -796,7 +925,8 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Valor Total (R$)</label>
-                    <input required type="number" step="0.01" name="valor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 1500.50" />
+                    <input required type="text" value={valorInput} onChange={handleValorChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 1.500,50" />
+                    <input type="hidden" name="valor" value={valorInput.replace(/\./g, '').replace(',', '.')} />
                   </div>
                   {tipoTransf === 'MOD_1' && (
                     <div>
@@ -813,8 +943,15 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
                 </div>
               )}
 
+              {tipoTransf === 'MOD_1' && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Observação (Motivo / Solicitante)</label>
+                  <textarea required name="observacao" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Transferência feita para ajustar estoque. Solicitado por Fulano."></textarea>
+                </div>
+              )}
+
               <div className="pt-8 flex justify-end gap-3">
-                <button type="button" disabled={isCriando} onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
+                <button type="button" disabled={isCriando} onClick={() => { setIsModalOpen(false); setNovaOrigem(''); setNovoDestino(''); setValorInput(''); }} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
                 <button type="submit" disabled={isCriando} className="px-8 py-3 bg-primary text-white hover:bg-primary/90 font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed">
                   {isCriando ? (
                     <>

@@ -110,6 +110,14 @@ export function PendencyTimeline({ transferenciaId, observacaoLegacy }: { transf
     }
   }
 
+  const getStoreName = (name: string) => {
+    if (!name) return 'Usuário'
+    if (name.includes('@')) return name.split('@')[0].toUpperCase()
+    return name.toUpperCase()
+  }
+
+  const firstSender = historico.length > 0 ? historico[0].nome_usuario : null;
+
   return (
     <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
       {historico.map((item) => {
@@ -123,17 +131,21 @@ export function PendencyTimeline({ transferenciaId, observacaoLegacy }: { transf
              fotosUrls = item.fotos.split(',').filter(f => f.trim().length > 0)
           } catch(e) {}
         }
+        
+        const isFirstSender = item.nome_usuario === firstSender;
+        const rowClass = isFirstSender ? 'md:flex-row-reverse' : 'md:flex-row';
+        const translateClass = isFirstSender ? 'md:-translate-x-1/2' : 'md:translate-x-1/2';
 
         return (
-          <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${style.border} ${style.bg} ${style.color} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2`}>
+          <div key={item.id} className={`relative flex items-center justify-between md:justify-normal ${rowClass}`}>
+            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${style.border} ${style.bg} ${style.color} shadow shrink-0 md:order-1 ${translateClass}`}>
               {style.icon}
             </div>
             <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <div className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  {item.nome_usuario || 'Usuário'}
+                  {getStoreName(item.nome_usuario)}
                 </div>
                 <time className="text-xs text-slate-500 font-medium">{dateStr}</time>
               </div>

@@ -43,6 +43,7 @@ export async function criarTransferencia(formData: FormData) {
         valor: valor ? parseFloat(valor as string) : null,
         volumes: volumes ? parseInt(volumes as string) : null,
         fornecedor: fornecedor as string | null,
+        observacao_pendencia: formData.get('observacao') as string | null,
         emitida_por: emitida_por as string,
         situacao: isMod1 ? 'CONCLUIDA' : 'AGUARDANDO_SEPARACAO',
         separado: isMod1 ? true : false,
@@ -506,18 +507,28 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
 
     if (histError) throw new Error(histError.message)
 
-    // Se for resolução total, altera o status da nota
-    if (tipoAcao === 'RESOLUCAO_TOTAL') {
+    if (tipoAcao === 'RESOLUCAO_TOTAL' || tipoAcao === 'RESOLUCAO_PARCIAL') {
       await supabaseAdmin.from('transferencias')
         .update({
-          situacao: 'CONCLUIDA',
-          data_concluida: new Date().toISOString().split('T')[0]
+          situacao: 'PENDENCIA_ENVIADA'
         })
         .eq('id', transferenciaId)
         
       await supabaseAdmin.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
-        tipo_evento: 'PENDENCIA_RESOLVIDA',
+        tipo_evento: tipoAcao === 'RESOLUCAO_TOTAL' ? 'PENDENCIA_RESOLUCAO_TOTAL_ENVIADA' : 'PENDENCIA_RESOLUCAO_PARCIAL_ENVIADA',
+        usuario_id: user.id
+      })
+    } else if (tipoAcao === 'RECUSAR_RESOLUCAO') {
+      await supabaseAdmin.from('transferencias')
+        .update({
+          situacao: 'PENDENCIA'
+        })
+        .eq('id', transferenciaId)
+        
+      await supabaseAdmin.from('transferencia_eventos').insert({
+        transferencia_id: transferenciaId,
+        tipo_evento: 'PENDENCIA_RECUSADA',
         usuario_id: user.id
       })
     } else {
