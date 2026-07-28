@@ -230,7 +230,7 @@ export async function avancarSituacao(
       await supabase.from('historico_pendencias').insert({
         transferencia_id: transferenciaId,
         perfil_id: user.id,
-        nome_usuario: profile?.nome || 'Usuário',
+        nome_usuario: nomeFormatado,
         mensagem: msg || 'Pendência aberta.',
         fotos: fotosStr,
         tipo_acao: 'ABERTURA'
