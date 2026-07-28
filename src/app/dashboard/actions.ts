@@ -114,9 +114,9 @@ export async function avancarSituacao(
     const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
 
 
-    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
     
-    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id').eq('id', transferenciaId).single()
+    
+    const { data: currTransfer } = await supabase.from('transferencias').select('origem_loja_id, destino_loja_id').eq('id', transferenciaId).single()
     if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
 
     if ((profile as any).role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
@@ -189,7 +189,7 @@ export async function avancarSituacao(
 
     console.log('Update Data:', updateData)
 
-    const { data: updatedRow, error, count } = await supabaseAdmin
+    const { data: updatedRow, error, count } = await supabase
       .from('transferencias')
       .update(updateData)
       .eq('id', transferenciaId)
@@ -207,7 +207,7 @@ export async function avancarSituacao(
       return { success: false, error: 'Acesso negado ou transferência não encontrada.' }
     }
 
-    const { error: eventError } = await supabaseAdmin.from('transferencia_eventos').insert({
+    const { error: eventError } = await supabase.from('transferencia_eventos').insert({
       transferencia_id: transferenciaId,
       tipo_evento: evento,
       usuario_id: user.id
@@ -226,8 +226,8 @@ export async function avancarSituacao(
         fotosStr = parts[1].trim()
       }
       
-      const { data: profile } = await supabaseAdmin.from('profiles').select('nome').eq('id', user.id).single()
-      await supabaseAdmin.from('historico_pendencias').insert({
+      const { data: profile } = await supabase.from('profiles').select('nome').eq('id', user.id).single()
+      await supabase.from('historico_pendencias').insert({
         transferencia_id: transferenciaId,
         perfil_id: user.id,
         nome_usuario: profile?.nome || 'Usuário',
@@ -290,8 +290,8 @@ export async function resolverPendencia(formData: FormData) {
       foto_pendencia_url: fotoUrl
     }
 
-    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id, observacao_pendencia').eq('id', transferenciaId).single()
+    
+    const { data: currTransfer } = await supabase.from('transferencias').select('origem_loja_id, destino_loja_id, observacao_pendencia').eq('id', transferenciaId).single()
     
     if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
     if ((profile as any).role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
@@ -309,7 +309,7 @@ export async function resolverPendencia(formData: FormData) {
       }
     }
 
-    const { data: updatedRow, error } = await supabaseAdmin
+    const { data: updatedRow, error } = await supabase
       .from('transferencias')
       .update(updateObj)
       .eq('id', transferenciaId)
@@ -318,7 +318,7 @@ export async function resolverPendencia(formData: FormData) {
     if (error) return { success: false, error: 'Falha ao atualizar situação' }
     if (!updatedRow || updatedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou bloqueada.' }
 
-    await supabaseAdmin.from('transferencia_eventos').insert({
+    await supabase.from('transferencia_eventos').insert({
       transferencia_id: transferenciaId,
       tipo_evento: 'PENDENCIA_ENVIADA',
       usuario_id: user.id
@@ -376,11 +376,9 @@ export async function editarTransferencia(formData: FormData) {
       if (destino_loja_id) updateData.destino_loja_id = destino_loja_id as string
     }
 
-    const supabaseAdmin = (profile as any).role === 'admin' 
-      ? createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      : supabase
+    
 
-    const { data: updatedRow, error } = await supabaseAdmin.from('transferencias').update(updateData).eq('id', id).select()
+    const { data: updatedRow, error } = await supabase.from('transferencias').update(updateData).eq('id', id).select()
     
     if (error) {
       console.error(error)
@@ -390,7 +388,7 @@ export async function editarTransferencia(formData: FormData) {
       return { success: false, error: 'Transferência não encontrada ou sem permissão para editar.' }
     }
 
-    await supabaseAdmin.from('transferencia_eventos').insert({
+    await supabase.from('transferencia_eventos').insert({
       transferencia_id: id,
       tipo_evento: 'EDITADA',
       usuario_id: user.id
@@ -416,16 +414,13 @@ export async function cancelarTransferencia(id: string) {
     const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
 
 
-    const supabaseAdmin = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    
 
-    const { data: updatedRow, error } = await supabaseAdmin.from('transferencias').update({ situacao: 'CANCELADA' }).eq('id', id).select()
+    const { data: updatedRow, error } = await supabase.from('transferencias').update({ situacao: 'CANCELADA' }).eq('id', id).select()
     if (error) return { success: false, error: 'Falha ao cancelar: ' + error.message }
     if (!updatedRow || updatedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou bloqueada.' }
 
-    await supabaseAdmin.from('transferencia_eventos').insert({
+    await supabase.from('transferencia_eventos').insert({
       transferencia_id: id,
       tipo_evento: 'CANCELADA',
       usuario_id: user.id
@@ -520,10 +515,10 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
       }
     }
 
-    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    
     
     // Inserir no histórico
-    const { error: histError } = await supabaseAdmin.from('historico_pendencias').insert({
+    const { error: histError } = await supabase.from('historico_pendencias').insert({
       transferencia_id: transferenciaId,
       perfil_id: user.id,
       nome_usuario: nomeFormatado,
@@ -535,31 +530,31 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
     if (histError) throw new Error(histError.message)
 
     if (tipoAcao === 'RESOLUCAO_TOTAL' || tipoAcao === 'RESOLUCAO_PARCIAL') {
-      await supabaseAdmin.from('transferencias')
+      await supabase.from('transferencias')
         .update({
           situacao: 'PENDENCIA_ENVIADA'
         })
         .eq('id', transferenciaId)
         
-      await supabaseAdmin.from('transferencia_eventos').insert({
+      await supabase.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
         tipo_evento: tipoAcao === 'RESOLUCAO_TOTAL' ? 'PENDENCIA_RESOLUCAO_TOTAL_ENVIADA' : 'PENDENCIA_RESOLUCAO_PARCIAL_ENVIADA',
         usuario_id: user.id
       , detalhes: { operador: nomeFormatado } })
     } else if (tipoAcao === 'RECUSAR_RESOLUCAO') {
-      await supabaseAdmin.from('transferencias')
+      await supabase.from('transferencias')
         .update({
           situacao: 'PENDENCIA'
         })
         .eq('id', transferenciaId)
         
-      await supabaseAdmin.from('transferencia_eventos').insert({
+      await supabase.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
         tipo_evento: 'PENDENCIA_RECUSADA',
         usuario_id: user.id
       , detalhes: { operador: nomeFormatado } })
     } else {
-      await supabaseAdmin.from('transferencia_eventos').insert({
+      await supabase.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
         tipo_evento: 'ATUALIZACAO_PENDENCIA',
         usuario_id: user.id
@@ -594,10 +589,10 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
       return { success: false, error: 'Campos obrigatórios faltando' }
     }
 
-    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    
 
     // Validar permissão
-    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('destino_loja_id, situacao, observacao_pendencia').eq('id', transferenciaId).single()
+    const { data: currTransfer } = await supabase.from('transferencias').select('destino_loja_id, situacao, observacao_pendencia').eq('id', transferenciaId).single()
     
     if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
     if (currTransfer.situacao !== 'CONCLUIDA') return { success: false, error: 'Apenas transferências concluídas podem ser reabertas.' }
@@ -631,7 +626,7 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
 
     const prazo = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
 
-    const { error: updateError } = await supabaseAdmin.from('transferencias')
+    const { error: updateError } = await supabase.from('transferencias')
       .update({
         situacao: 'PENDENCIA',
         observacao_pendencia: novaObservacao,
@@ -643,7 +638,7 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
     if (updateError) throw new Error('Falha ao atualizar situação da nota: ' + updateError.message)
 
     // Inserir Histórico de Pendência
-    await supabaseAdmin.from('historico_pendencias').insert({
+    await supabase.from('historico_pendencias').insert({
       transferencia_id: transferenciaId,
       perfil_id: user.id,
       nome_usuario: nomeFormatado,
@@ -653,7 +648,7 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
     })
 
     // Inserir Evento
-    await supabaseAdmin.from('transferencia_eventos').insert({
+    await supabase.from('transferencia_eventos').insert({
       transferencia_id: transferenciaId,
       tipo_evento: 'PENDENCIA_REABERTA',
       usuario_id: user.id
