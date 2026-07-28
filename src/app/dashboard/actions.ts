@@ -1,13 +1,13 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
+import { getCachedUser } from '@/utils/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 export async function criarTransferencia(formData: FormData) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) throw new Error('Unauthorized')
 
     const { data: profile } = await supabase
@@ -17,6 +17,11 @@ export async function criarTransferencia(formData: FormData) {
       .single()
       
     if (!profile) throw new Error('Unauthorized')
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const tipo = formData.get('tipo')
     const numero_nota = formData.get('numero_nota')
@@ -63,14 +68,14 @@ export async function criarTransferencia(formData: FormData) {
       transferencia_id: data.id,
       tipo_evento: 'CRIADA',
       usuario_id: profile.id
-    })
+    , detalhes: { operador: nomeFormatado } })
 
     if (isMod1) {
       await supabase.from('transferencia_eventos').insert({
         transferencia_id: data.id,
         tipo_evento: 'CONFERIDA',
         usuario_id: profile.id
-      })
+      , detalhes: { operador: nomeFormatado } })
     }
 
     if (eventError) {
@@ -95,22 +100,26 @@ export async function avancarSituacao(
   console.log('Dados:', dados)
 
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) {
       console.error('Sem usuario logado')
       return { success: false, error: 'Sessão expirada. Faça login novamente.' }
     }
 
-    const { data: profile } = await supabase.from('profiles').select('loja_id, role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role, nome, lojas(nome)').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
     
     const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id').eq('id', transferenciaId).single()
     if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
 
-    if (profile.role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
+    if ((profile as any).role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
       return { success: false, error: 'Acesso negado: Você não pertence à loja de origem ou destino.' }
     }
 
@@ -202,7 +211,7 @@ export async function avancarSituacao(
       transferencia_id: transferenciaId,
       tipo_evento: evento,
       usuario_id: user.id
-    })
+    , detalhes: { operador: nomeFormatado } })
 
     if (eventError) {
       console.error('Falha evento:', eventError)
@@ -238,12 +247,16 @@ export async function avancarSituacao(
 
 export async function resolverPendencia(formData: FormData) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) return { success: false, error: 'Sessão expirada' }
 
-    const { data: profile } = await supabase.from('profiles').select('loja_id, role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role, nome, lojas(nome)').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const transferenciaId = formData.get('transferenciaId') as string
     const foto = formData.get('foto') as File | null
@@ -281,7 +294,7 @@ export async function resolverPendencia(formData: FormData) {
     const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('origem_loja_id, destino_loja_id, observacao_pendencia').eq('id', transferenciaId).single()
     
     if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
-    if (profile.role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
+    if ((profile as any).role !== 'admin' && profile.loja_id !== currTransfer.origem_loja_id && profile.loja_id !== currTransfer.destino_loja_id) {
       return { success: false, error: 'Acesso negado: Você não pertence à loja de origem ou destino.' }
     }
 
@@ -309,7 +322,7 @@ export async function resolverPendencia(formData: FormData) {
       transferencia_id: transferenciaId,
       tipo_evento: 'PENDENCIA_ENVIADA',
       usuario_id: user.id
-    })
+    , detalhes: { operador: nomeFormatado } })
 
     revalidatePath('/dashboard')
     return { success: true }
@@ -320,12 +333,16 @@ export async function resolverPendencia(formData: FormData) {
 
 export async function editarTransferencia(formData: FormData) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Unauthorized' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const id = formData.get('id') as string
     if (!id) return { success: false, error: 'ID missing' }
@@ -345,7 +362,7 @@ export async function editarTransferencia(formData: FormData) {
     if (fornecedor !== null) updateData.fornecedor = (fornecedor as string).trim() || null
 
     // Admin only edits
-    if (profile.role === 'admin') {
+    if ((profile as any).role === 'admin') {
       const tipo = formData.get('tipo')
       if (tipo) updateData.tipo = tipo as string
       
@@ -359,7 +376,7 @@ export async function editarTransferencia(formData: FormData) {
       if (destino_loja_id) updateData.destino_loja_id = destino_loja_id as string
     }
 
-    const supabaseAdmin = profile.role === 'admin' 
+    const supabaseAdmin = (profile as any).role === 'admin' 
       ? createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
       : supabase
 
@@ -377,7 +394,7 @@ export async function editarTransferencia(formData: FormData) {
       transferencia_id: id,
       tipo_evento: 'EDITADA',
       usuario_id: user.id
-    })
+    , detalhes: { operador: nomeFormatado } })
 
     revalidatePath('/dashboard')
     return { success: true }
@@ -388,12 +405,16 @@ export async function editarTransferencia(formData: FormData) {
 
 export async function cancelarTransferencia(id: string) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('role, nome, lojas(nome)').eq('id', user.id).single()
     if (profile?.role !== 'admin') return { success: false, error: 'Forbidden' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const supabaseAdmin = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -408,7 +429,7 @@ export async function cancelarTransferencia(id: string) {
       transferencia_id: id,
       tipo_evento: 'CANCELADA',
       usuario_id: user.id
-    })
+    , detalhes: { operador: nomeFormatado } })
 
     revalidatePath('/dashboard')
     return { success: true }
@@ -419,12 +440,16 @@ export async function cancelarTransferencia(id: string) {
 
 export async function excluirTransferencia(id: string) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('role, nome, lojas(nome)').eq('id', user.id).single()
     if (profile?.role !== 'admin') return { success: false, error: 'Forbidden' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const supabaseAdmin = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -447,7 +472,7 @@ export async function excluirTransferencia(id: string) {
 }
 
 export async function obterHistorico(id: string) {
-  const supabase = await createClient()
+  const { supabase } = await getCachedUser()
   const { data, error } = await supabase
     .from('transferencia_eventos')
     .select(`
@@ -463,12 +488,16 @@ export async function obterHistorico(id: string) {
 
 export async function adicionarHistoricoPendencia(formData: FormData) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, supabase } = await getCachedUser()
     if (!user) return { success: false, error: 'Sessão expirada' }
 
     const { data: profile } = await supabase.from('profiles').select('loja_id, role, nome').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
 
     const transferenciaId = formData.get('transferenciaId') as string
     const mensagem = formData.get('mensagem') as string
@@ -499,10 +528,10 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
     const { error: histError } = await supabaseAdmin.from('historico_pendencias').insert({
       transferencia_id: transferenciaId,
       perfil_id: user.id,
-      nome_usuario: profile.nome || 'Usuário',
+      nome_usuario: nomeFormatado,
       mensagem,
       fotos: fotosStr || null,
-      tipo_acao: tipoAcao
+      tipo_acao: tipoAcao === 'RECUSAR_RESOLUCAO' ? 'ATUALIZACAO' : tipoAcao
     })
 
     if (histError) throw new Error(histError.message)
@@ -518,7 +547,7 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
         transferencia_id: transferenciaId,
         tipo_evento: tipoAcao === 'RESOLUCAO_TOTAL' ? 'PENDENCIA_RESOLUCAO_TOTAL_ENVIADA' : 'PENDENCIA_RESOLUCAO_PARCIAL_ENVIADA',
         usuario_id: user.id
-      })
+      , detalhes: { operador: nomeFormatado } })
     } else if (tipoAcao === 'RECUSAR_RESOLUCAO') {
       await supabaseAdmin.from('transferencias')
         .update({
@@ -530,18 +559,111 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
         transferencia_id: transferenciaId,
         tipo_evento: 'PENDENCIA_RECUSADA',
         usuario_id: user.id
-      })
+      , detalhes: { operador: nomeFormatado } })
     } else {
       await supabaseAdmin.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
         tipo_evento: 'ATUALIZACAO_PENDENCIA',
         usuario_id: user.id
-      })
+      , detalhes: { operador: nomeFormatado } })
     }
 
     revalidatePath('/dashboard')
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message || 'Erro inesperado' }
+  }
+}
+
+export async function reabrirPendenciaTransferencia(formData: FormData) {
+  try {
+    const { data: { user }, supabase } = await getCachedUser()
+    if (!user) return { success: false, error: 'Sessão expirada' }
+
+    const { data: profile } = await supabase.from('profiles').select('loja_id, role, nome').eq('id', user.id).single()
+    if (!profile) return { success: false, error: 'Perfil não encontrado' }
+
+    const operadorAtual = (await cookies()).get('operador_atual')?.value
+    const storeName = (profile as any).role === 'admin' ? 'ADMIN' : ((profile as any).lojas?.nome || (profile as any).nome || 'SISTEMA')
+    const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
+
+
+    const transferenciaId = formData.get('transferenciaId') as string
+    const mensagem = formData.get('mensagem') as string
+    const foto = formData.get('foto') as File | null
+    
+    if (!transferenciaId || !mensagem) {
+      return { success: false, error: 'Campos obrigatórios faltando' }
+    }
+
+    const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    // Validar permissão
+    const { data: currTransfer } = await supabaseAdmin.from('transferencias').select('destino_loja_id, situacao, observacao_pendencia').eq('id', transferenciaId).single()
+    
+    if (!currTransfer) return { success: false, error: 'Transferência não encontrada' }
+    if (currTransfer.situacao !== 'CONCLUIDA') return { success: false, error: 'Apenas transferências concluídas podem ser reabertas.' }
+    
+    if ((profile as any).role !== 'admin' && profile.loja_id !== currTransfer.destino_loja_id) {
+      return { success: false, error: 'Acesso negado: Apenas o administrador ou a loja de destino podem reabrir a nota.' }
+    }
+
+    let fotosStr = ''
+    if (foto && foto.size > 0) {
+      const fileExt = foto.name.split('.').pop()
+      const fileName = `${transferenciaId}_reabertura_${Date.now()}.${fileExt}`
+      const { error: uploadError } = await supabase.storage
+        .from('fotos_pendencias')
+        .upload(fileName, foto)
+      
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
+        fotosStr = publicUrlData.publicUrl
+      }
+    }
+
+    // Atualizar Transferência
+    let novaObservacao = currTransfer.observacao_pendencia 
+      ? `${currTransfer.observacao_pendencia}\n\n[REABERTURA]: ${mensagem}` 
+      : `[REABERTURA]: ${mensagem}`
+      
+    if (fotosStr) {
+      novaObservacao += ` ||FOTOS|| ${fotosStr}`
+    }
+
+    const prazo = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { error: updateError } = await supabaseAdmin.from('transferencias')
+      .update({
+        situacao: 'PENDENCIA',
+        observacao_pendencia: novaObservacao,
+        prazo_pendencia: prazo,
+        data_concluida: null // Remove a data de conclusão
+      })
+      .eq('id', transferenciaId)
+
+    if (updateError) throw new Error('Falha ao atualizar situação da nota: ' + updateError.message)
+
+    // Inserir Histórico de Pendência
+    await supabaseAdmin.from('historico_pendencias').insert({
+      transferencia_id: transferenciaId,
+      perfil_id: user.id,
+      nome_usuario: nomeFormatado,
+      mensagem: mensagem,
+      fotos: fotosStr || null,
+      tipo_acao: 'ABERTURA'
+    })
+
+    // Inserir Evento
+    await supabaseAdmin.from('transferencia_eventos').insert({
+      transferencia_id: transferenciaId,
+      tipo_evento: 'PENDENCIA_REABERTA',
+      usuario_id: user.id
+    , detalhes: { operador: nomeFormatado } })
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro inesperado ao reabrir' }
   }
 }

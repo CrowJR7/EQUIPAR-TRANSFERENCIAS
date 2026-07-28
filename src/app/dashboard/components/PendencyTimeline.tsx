@@ -36,6 +36,21 @@ export function PendencyTimeline({ transferenciaId, observacaoLegacy }: { transf
 
     if (transferenciaId) {
       loadHistorico()
+      
+      const channel = supabase.channel(`historico_chat_${transferenciaId}`)
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'historico_pendencias',
+          filter: `transferencia_id=eq.${transferenciaId}`
+        }, (payload) => {
+          setHistorico(prev => [...prev, payload.new as HistoricoItem])
+        })
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
     }
   }, [transferenciaId, supabase])
 

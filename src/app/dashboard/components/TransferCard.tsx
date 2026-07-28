@@ -1,6 +1,6 @@
 import { 
   Truck, AlertCircle, CheckCircle, XCircle, Flag, Clock, 
-  UserX, User, Package, ChevronUp, ChevronDown, Trash2 
+  UserX, User, Package, ChevronUp, ChevronDown, Trash2, RotateCcw 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PendencyTimeline } from './PendencyTimeline'
@@ -32,7 +32,7 @@ interface TransferCardProps {
   activeTab: 'enviando' | 'recebendo' | 'pendencias' | 'historico';
   isExpanded: boolean;
   toggleExpand: (id: string) => void;
-  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => void;
+  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia') => void;
   avancarSituacao: (id: string, acao: 'separar' | 'enviar' | 'receber' | 'conferir' | 'resolver_pendencia' | 'receber_pendencia', dados?: any) => Promise<{ success: boolean, error?: string }>;
   index?: number;
 }
@@ -202,7 +202,7 @@ export function TransferCard({
             </button>
           )}
 
-          {isOrigin && item.situacao === 'PENDENCIA' && (
+          {(isOrigin || isDest || isAdm) && item.situacao === 'PENDENCIA' && (
             <button onClick={() => openActionModal(item.id, 'resolver_pendencia')} className="px-5 py-2.5 text-sm bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 font-bold rounded-xl transition-all shadow-sm hover:-translate-y-0.5 active:scale-95">
               Responder
             </button>
@@ -232,6 +232,11 @@ export function TransferCard({
             <button onClick={(e) => { e.stopPropagation(); openActionModal(item.id, 'rastreamento'); }} className="p-2.5 text-slate-400 hover:text-primary transition-colors bg-white/0 hover:bg-white rounded-lg" title="Ver Histórico">
               <Clock className="w-4 h-4" />
             </button>
+            {(isDest || isAdm) && item.situacao === 'CONCLUIDA' && (
+              <button onClick={(e) => { e.stopPropagation(); openActionModal(item.id, 'reabrir_pendencia'); }} className="p-2.5 text-slate-400 hover:text-rose-500 transition-colors bg-white/0 hover:bg-white rounded-lg" title="Reabrir com Pendência">
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
             {isAdm && (
               <button onClick={(e) => { e.stopPropagation(); openActionModal(item.id, 'editar'); }} className="p-2.5 text-slate-400 hover:text-amber-500 transition-colors bg-white/0 hover:bg-white rounded-lg" title="Editar Nota">
                 <span className="font-bold text-[10px]">EDIT</span>

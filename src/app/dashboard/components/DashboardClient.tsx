@@ -4,7 +4,7 @@ import { criarTransferencia, avancarSituacao, resolverPendencia, editarTransfere
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { AlertCircle, Package, CheckCircle, Truck, Settings, BarChart3, ListFilter, UserX, Store, Loader2, Plus, User } from 'lucide-react'
+import { AlertCircle, Package, CheckCircle, Truck, Settings, BarChart3, ListFilter, UserX, Store, Loader2, Plus, User, MessageSquare, XCircle } from 'lucide-react'
 import { TransferCard } from './TransferCard'
 import { CustomSelect } from './CustomSelect'
 import { DashboardFilters } from './DashboardFilters'
@@ -86,6 +86,49 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
             }
           }
 
+
+          if (wasStatusChanged && payload.new.situacao === 'SEPARADO' && payload.new.destino_loja_id === profile?.loja_id) {
+            toast.custom((t) => (
+              <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-emerald-100 flex overflow-hidden ring-1 ring-black/5`}>
+                <div className="p-4 flex items-start gap-4 flex-1">
+                  <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600">
+                    <CheckCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-800">Mercadoria Separada</p>
+                    <p className="mt-1 text-sm text-slate-500">A NF: {payload.new.numero_nota} foi separada e aguarda envio para sua loja!</p>
+                  </div>
+                </div>
+                <div className="flex border-l border-slate-100">
+                  <button onClick={() => toast.dismiss(t.id)} className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-emerald-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                    OK
+                  </button>
+                </div>
+              </div>
+            ), { duration: Infinity, position: 'top-right' })
+          }
+
+          if (wasStatusChanged && payload.new.situacao === 'CANCELADA' && payload.new.destino_loja_id === profile?.loja_id) {
+            toast.custom((t) => (
+              <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-red-100 flex overflow-hidden ring-1 ring-black/5`}>
+                <div className="p-4 flex items-start gap-4 flex-1">
+                  <div className="bg-red-100 p-2 rounded-xl text-red-600">
+                    <XCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-800">Transferência Cancelada</p>
+                    <p className="mt-1 text-sm text-slate-500">A NF: {payload.new.numero_nota} foi cancelada pela origem.</p>
+                  </div>
+                </div>
+                <div className="flex border-l border-slate-100">
+                  <button onClick={() => toast.dismiss(t.id)} className="w-full border border-transparent rounded-none rounded-r-2xl p-4 flex items-center justify-center text-sm font-bold text-red-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
+                    OK
+                  </button>
+                </div>
+              </div>
+            ), { duration: Infinity, position: 'top-right' })
+          }
+
           if (wasStatusChanged && payload.new.situacao === 'ENVIADO' && payload.new.destino_loja_id === profile?.loja_id) {
             toast.custom((t) => (
               <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto border border-amber-100 flex overflow-hidden ring-1 ring-black/5`}>
@@ -124,10 +167,10 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean,
     transferId: string | null,
-    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | null
+    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
   }>({ isOpen: false, transferId: null, actionType: null })
 
-  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir') => {
+  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | 'reabrir_pendencia') => {
     setActionModal({ isOpen: true, transferId: id, actionType: type })
   }
 

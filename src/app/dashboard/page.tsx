@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getCachedUser } from '@/utils/supabase/server'
 import { DashboardClient } from './components/DashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -6,7 +6,7 @@ export const revalidate = 0
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await getCachedUser()
 
   const { data: profile } = await supabase
     .from('profiles')

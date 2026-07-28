@@ -5,11 +5,11 @@ import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Load
 import toast from 'react-hot-toast'
 import { createClient } from '@/utils/supabase/client'
 import { CustomSelect } from './CustomSelect'
-import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirTransferencia, avancarSituacao, adicionarHistoricoPendencia } from '../actions'
+import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirTransferencia, avancarSituacao, adicionarHistoricoPendencia, reabrirPendenciaTransferencia } from '../actions'
 
 interface ActionModalProps {
   isOpen: boolean
-  actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | null
+  actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
   transferId: string | null
   onClose: () => void
   enviando: any[]
@@ -76,6 +76,30 @@ export function ActionModal({
           }
         }
         fetchHist()
+
+        const channel = supabase.channel(`rastreamento_${transferId}`)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'transferencia_eventos',
+            filter: `transferencia_id=eq.${transferId}`
+          }, async (payload) => {
+            // Need to fetch the profile data for this event because realtime doesn't join tables
+            const { data: fullEvent } = await supabase
+              .from('transferencia_eventos')
+              .select('*, profiles(nome, lojas(nome))')
+              .eq('id', payload.new.id)
+              .single()
+              
+            if (fullEvent) {
+              setHistoricoEventos(prev => [...prev, fullEvent])
+            }
+          })
+          .subscribe()
+
+        return () => {
+          supabase.removeChannel(channel)
+        }
       }
     }
   }, [isOpen, transferId, actionType, item])
@@ -123,7 +147,11 @@ export function ActionModal({
                           <time className="text-xs text-slate-400 font-medium">{new Date(evt.created_at).toLocaleString()}</time>
                         </div>
                         <div className="text-slate-500 text-xs">
-                          Usuário: <span className="font-semibold text-slate-700">{(evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema').replace(/@.*/, '').toUpperCase()}</span>
+                          Usuário: <span className="font-semibold text-slate-700">
+                            {evt.detalhes?.operador 
+                              ? evt.detalhes.operador 
+                              : (evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema').replace(/@.*/, '').toUpperCase()}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -154,6 +182,7 @@ export function ActionModal({
           {actionType === 'editar' && 'Editar Transferência'}
           {actionType === 'cancelar' && 'Cancelar Transferência'}
           {actionType === 'excluir' && 'Excluir Transferência'}
+          {actionType === 'reabrir_pendencia' && 'Reabrir com Pendência'}
         </h3>
         
         <form onSubmit={async (e) => {
@@ -188,6 +217,30 @@ export function ActionModal({
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'resolver' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+
+          if (actionType === 'reabrir_pendencia') {
+            const obs = formData.get('mensagem') as string
+            
+            if (!obs || obs.trim() === '') {
+              toast.error('Você deve fornecer o motivo da reabertura.', { id: 'reabrir_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            try {
+              toast.loading('Reabrindo transferência...', { id: 'reabrir' })
+              formData.append('transferenciaId', transferId)
+              const res = await reabrirPendenciaTransferencia(formData)
+              if (!res.success) throw new Error(res.error)
+              toast.success('Transferência reaberta com pendência!', { id: 'reabrir' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'reabrir' })
             } finally {
               setIsSubmitting(false)
             }
@@ -482,6 +535,25 @@ export function ActionModal({
                 Foto (Opcional)
               </label>
               <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-600/10 file:text-red-600 hover:file:bg-red-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+
+          {actionType === 'reabrir_pendencia' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="REABERTURA" />
+              <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-4 text-sm text-rose-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Reabrir Transferência:</strong> A nota deixará de ser Concluída e voltará para PENDÊNCIA. A loja de origem será notificada. Informe o motivo abaixo.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo da Reabertura</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Conferimos o estoque e faltou 1 caixa."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-600/10 file:text-rose-600 hover:file:bg-rose-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
           

@@ -14,10 +14,10 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        router.refresh()
+        window.location.href = '/login'
       } else if (event === 'TOKEN_REFRESHED') {
-        // Refresh the router to keep server components in sync
-        router.refresh()
+        // ...
+        // when cookies get out of sync
       }
     })
 

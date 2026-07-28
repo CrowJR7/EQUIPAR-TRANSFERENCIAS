@@ -1,7 +1,9 @@
-import { createClient } from '@/utils/supabase/server'
+import { createClient, getCachedUser } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { LogOut, ArrowRightLeft } from 'lucide-react'
 import Image from 'next/image'
+import { cookies } from 'next/headers'
+import { OperatorModal } from './components/OperatorModal'
 
 export default async function DashboardLayout({
   children,
@@ -9,7 +11,7 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await getCachedUser()
 
   if (!user) {
     redirect('/login')
@@ -21,6 +23,9 @@ export default async function DashboardLayout({
     .select('*, lojas(nome)')
     .eq('id', user.id)
     .single()
+
+  const cookieStore = await cookies()
+  const operadorAtual = cookieStore.get('operador_atual')?.value
 
   return (
     <div className="flex flex-col h-screen bg-[#f8f9fa] overflow-hidden font-sans">
@@ -40,17 +45,10 @@ export default async function DashboardLayout({
 
         {/* Right: Profile & Actions */}
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 text-right hidden sm:flex">
-            <div>
-              <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mb-0.5">Atuando em</p>
-              <h1 className="text-sm font-display font-bold text-white tracking-tight">
-                {profile?.role === 'admin' ? 'Administração Geral' : `Loja ${profile?.lojas?.nome || 'Não Vinculada'}`}
-              </h1>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 shadow-inner flex items-center justify-center text-white font-bold text-lg ml-2">
-              {profile?.role === 'admin' ? 'AD' : profile?.lojas?.nome?.charAt(0) || 'L'}
-            </div>
-          </div>
+          <OperatorModal 
+            currentOperator={operadorAtual} 
+            lojaNome={profile?.role === 'admin' ? 'Administração Geral' : `Loja ${profile?.lojas?.nome || 'Não Vinculada'}`} 
+          />
 
           <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
 
