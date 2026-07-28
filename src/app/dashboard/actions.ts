@@ -451,16 +451,14 @@ export async function excluirTransferencia(id: string) {
     const nomeFormatado = operadorAtual ? `${operadorAtual} / ${storeName}` : storeName
 
 
-    const supabaseAdmin = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // Exclui historico de pendencias primeiro
+    await supabase.from('historico_pendencias').delete().eq('transferencia_id', id)
 
     // Primeiro exclui os eventos para não dar erro de chave estrangeira
-    const { error: eventsError } = await supabaseAdmin.from('transferencia_eventos').delete().eq('transferencia_id', id)
+    const { error: eventsError } = await supabase.from('transferencia_eventos').delete().eq('transferencia_id', id)
     if (eventsError) return { success: false, error: 'Falha ao excluir histórico da transferência: ' + eventsError.message }
 
-    const { data: deletedRow, error } = await supabaseAdmin.from('transferencias').delete().eq('id', id).select()
+    const { data: deletedRow, error } = await supabase.from('transferencias').delete().eq('id', id).select()
     if (error) return { success: false, error: 'Falha ao excluir: ' + error.message }
     if (!deletedRow || deletedRow.length === 0) return { success: false, error: 'Transferência não encontrada ou já excluída.' }
 
