@@ -32,7 +32,7 @@ interface TransferCardProps {
   activeTab: 'enviando' | 'recebendo' | 'pendencias' | 'historico';
   isExpanded: boolean;
   toggleExpand: (id: string) => void;
-  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia') => void;
+  openActionModal: (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'aceitar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia') => void;
   avancarSituacao: (id: string, acao: 'separar' | 'enviar' | 'receber' | 'conferir' | 'resolver_pendencia' | 'receber_pendencia', dados?: any) => Promise<{ success: boolean, error?: string }>;
   index?: number;
 }
@@ -210,16 +210,7 @@ export function TransferCard({
 
           {isDest && item.situacao === 'PENDENCIA_ENVIADA' && (
             <>
-              <button onClick={() => {
-                toast.promise(avancarSituacao(item.id, 'receber_pendencia').then((res: any) => {
-                  if (res?.error) throw new Error(res.error)
-                  return res
-                }), {
-                  loading: 'Finalizando...',
-                  success: 'Pendência resolvida e nota finalizada!',
-                  error: (e: any) => `Erro: ${e.message}`
-                })
-              }} className="px-4 py-2.5 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">
+              <button onClick={() => openActionModal(item.id, 'aceitar_resolucao')} className="px-4 py-2.5 text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" /> Aceitar & Finalizar
               </button>
               <button onClick={() => openActionModal(item.id, 'recusar_resolucao')} className="px-4 py-2.5 text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-all shadow-md hover:-translate-y-0.5 active:scale-95 flex items-center gap-2">

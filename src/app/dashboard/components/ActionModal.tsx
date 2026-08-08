@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Loader2 } from 'lucide-react'
+import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Loader2, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { createClient } from '@/utils/supabase/client'
 import { CustomSelect } from './CustomSelect'
@@ -9,7 +9,7 @@ import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirT
 
 interface ActionModalProps {
   isOpen: boolean
-  actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
+  actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'aceitar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
   transferId: string | null
   onClose: () => void
   enviando: any[]
@@ -179,6 +179,7 @@ export function ActionModal({
           {actionType === 'conferir' && 'Conferir Mercadoria'}
           {actionType === 'resolver_pendencia' && 'Resolver Pendência'}
           {actionType === 'recusar_resolucao' && 'Recusar Resolução'}
+          {actionType === 'aceitar_resolucao' && 'Aceitar e Finalizar'}
           {actionType === 'editar' && 'Editar Transferência'}
           {actionType === 'cancelar' && 'Cancelar Transferência'}
           {actionType === 'excluir' && 'Excluir Transferência'}
@@ -191,13 +192,19 @@ export function ActionModal({
           if (!transferId || !actionType || isUploading) return
           setIsSubmitting(true)
 
-          if (actionType === 'resolver_pendencia' || actionType === 'recusar_resolucao') {
+          if (actionType === 'resolver_pendencia' || actionType === 'recusar_resolucao' || actionType === 'aceitar_resolucao') {
             const obs = formData.get('mensagem') as string
             const foto = formData.get('foto') as File
             const tipoAcao = formData.get('tipoAcao') as string
             
             if (actionType === 'recusar_resolucao' && (!obs || obs.trim() === '')) {
               toast.error('Você deve fornecer um motivo para a recusa.', { id: 'resolver_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            if (actionType === 'aceitar_resolucao' && (!obs || obs.trim() === '')) {
+              toast.error('Você deve fornecer uma anotação informando como foi resolvido.', { id: 'resolver_err' })
               setIsSubmitting(false)
               return
             }
@@ -213,7 +220,7 @@ export function ActionModal({
               formData.append('transferenciaId', transferId)
               const res = await adicionarHistoricoPendencia(formData)
               if (!res.success) throw new Error(res.error)
-              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Resolução enviada!' : (tipoAcao === 'RECUSAR_RESOLUCAO' ? 'Recusa enviada!' : 'Atualização enviada!'), { id: 'resolver' })
+              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Resolução enviada!' : (tipoAcao === 'RECUSAR_RESOLUCAO' ? 'Recusa enviada!' : (tipoAcao === 'ACEITAR_RESOLUCAO' ? 'Transferência finalizada!' : 'Atualização enviada!')), { id: 'resolver' })
               handleClose()
             } catch (e: any) {
               toast.error('Erro: ' + e.message, { id: 'resolver' })
@@ -538,6 +545,25 @@ export function ActionModal({
             </div>
           )}
 
+          {actionType === 'aceitar_resolucao' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="ACEITAR_RESOLUCAO" />
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4 text-sm text-emerald-800 flex gap-3">
+                <CheckCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Aceitar Resolução:</strong> A nota será CONCLUÍDA. Adicione uma anotação final informando como a situação foi encerrada.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Anotação Final</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Produto retirado do estoque e transferência finalizada."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-600/10 file:text-emerald-600 hover:file:bg-emerald-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+
           {actionType === 'reabrir_pendencia' && (
             <div className="space-y-4">
               <input type="hidden" name="tipoAcao" value="REABERTURA" />
@@ -638,13 +664,13 @@ export function ActionModal({
 
           <div className="pt-6 flex justify-end gap-3">
             <button type="button" disabled={isSubmitting || isUploading} onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
-            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}`}>
+            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : actionType === 'aceitar_resolucao' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary hover:bg-primary/90'}`}>
               {isSubmitting || isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                   <span>Enviando...</span>
                 </>
-              ) : actionType === 'cancelar' ? 'Sim, Cancelar' : actionType === 'excluir' ? 'Sim, Excluir' : 'Confirmar'}
+              ) : actionType === 'cancelar' ? 'Sim, Cancelar' : actionType === 'excluir' ? 'Sim, Excluir' : actionType === 'aceitar_resolucao' ? 'Aceitar e Finalizar' : 'Confirmar'}
             </button>
           </div>
         </form>

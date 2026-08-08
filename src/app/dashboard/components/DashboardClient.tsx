@@ -167,10 +167,10 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean,
     transferId: string | null,
-    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
+    actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'aceitar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
   }>({ isOpen: false, transferId: null, actionType: null })
 
-  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | 'reabrir_pendencia') => {
+  const openActionModal = (id: string, type: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'recusar_resolucao' | 'aceitar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia') => {
     setActionModal({ isOpen: true, transferId: id, actionType: type })
   }
 

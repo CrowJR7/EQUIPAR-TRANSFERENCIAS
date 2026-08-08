@@ -553,6 +553,19 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
         tipo_evento: 'PENDENCIA_RECUSADA',
         usuario_id: user.id
       , detalhes: { operador: nomeFormatado } })
+    } else if (tipoAcao === 'ACEITAR_RESOLUCAO') {
+      await supabase.from('transferencias')
+        .update({
+          situacao: 'CONCLUIDA',
+          data_concluida: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', transferenciaId)
+        
+      await supabase.from('transferencia_eventos').insert({
+        transferencia_id: transferenciaId,
+        tipo_evento: 'PENDENCIA_RECEBIDA',
+        usuario_id: user.id
+      , detalhes: { operador: nomeFormatado } })
     } else {
       await supabase.from('transferencia_eventos').insert({
         transferencia_id: transferenciaId,
