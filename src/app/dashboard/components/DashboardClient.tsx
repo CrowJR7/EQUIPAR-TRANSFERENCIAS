@@ -35,6 +35,42 @@ export function DashboardClient({ lojas, enviando, recebendo, profile }: { lojas
   }, [activeTab, busca, filtroStatus, filtroMes])
 
   useEffect(() => {
+    const showUpdateNote = () => {
+      const now = new Date()
+      const limitDate = new Date('2026-08-13T00:00:00')
+      if (now < limitDate && !localStorage.getItem('update_note_v2')) {
+        toast.custom((t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex flex-col ring-1 ring-black/5 overflow-hidden`}>
+            <div className="p-5 flex items-start gap-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="bg-white p-2 rounded-xl text-blue-600 shadow-sm shrink-0">
+                <Settings className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-bold text-slate-800">Novidades no Sistema! 🎉</p>
+                <div className="mt-2 text-sm text-slate-600 space-y-2">
+                  <p><strong>1. Múltiplas Fotos:</strong> Agora você pode enviar várias fotos de uma só vez ao registrar ou resolver uma pendência.</p>
+                  <p><strong>2. Aceitar Resolução:</strong> Ao clicar em "Aceitar & Finalizar" em uma pendência devolvida, o sistema agora solicitará uma anotação informando a conclusão (ex: retirado do estoque) para ficar gravado no histórico.</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex bg-slate-50 border-t border-slate-100 p-2 justify-end">
+              <button onClick={() => {
+                localStorage.setItem('update_note_v2', 'true')
+                toast.dismiss(t.id)
+              }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition-all active:scale-95">
+                Entendi
+              </button>
+            </div>
+          </div>
+        ), { duration: Infinity, position: 'top-center', id: 'update_note_v2' })
+      }
+    }
+    
+    const timer = setTimeout(showUpdateNote, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
     const channel = supabase.channel('transferencias_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transferencias' }, (payload) => {
         
