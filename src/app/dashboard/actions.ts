@@ -495,25 +495,30 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
     const transferenciaId = formData.get('transferenciaId') as string
     const mensagem = formData.get('mensagem') as string
     const tipoAcao = formData.get('tipoAcao') as string
-    const foto = formData.get('foto') as File | null
+    const fotos = formData.getAll('foto') as File[]
     
     if (!transferenciaId || !mensagem || !tipoAcao) {
       return { success: false, error: 'Campos obrigatórios faltando' }
     }
 
-    let fotosStr = ''
-    if (foto && foto.size > 0) {
-      const fileExt = foto.name.split('.').pop()
-      const fileName = `${transferenciaId}_${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage
-        .from('fotos_pendencias')
-        .upload(fileName, foto)
-      
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
-        fotosStr = publicUrlData.publicUrl
+    let fotosUrls: string[] = []
+    
+    for (const foto of fotos) {
+      if (foto && foto.size > 0) {
+        const fileExt = foto.name.split('.').pop()
+        const fileName = `${transferenciaId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('fotos_pendencias')
+          .upload(fileName, foto)
+        
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
+          fotosUrls.push(publicUrlData.publicUrl)
+        }
       }
     }
+    
+    const fotosStr = fotosUrls.join(',')
 
     
     
@@ -596,7 +601,7 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
 
     const transferenciaId = formData.get('transferenciaId') as string
     const mensagem = formData.get('mensagem') as string
-    const foto = formData.get('foto') as File | null
+    const fotos = formData.getAll('foto') as File[]
     
     if (!transferenciaId || !mensagem) {
       return { success: false, error: 'Campos obrigatórios faltando' }
@@ -614,19 +619,24 @@ export async function reabrirPendenciaTransferencia(formData: FormData) {
       return { success: false, error: 'Acesso negado: Apenas o administrador ou a loja de destino podem reabrir a nota.' }
     }
 
-    let fotosStr = ''
-    if (foto && foto.size > 0) {
-      const fileExt = foto.name.split('.').pop()
-      const fileName = `${transferenciaId}_reabertura_${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage
-        .from('fotos_pendencias')
-        .upload(fileName, foto)
-      
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
-        fotosStr = publicUrlData.publicUrl
+    let fotosUrls: string[] = []
+    
+    for (const foto of fotos) {
+      if (foto && foto.size > 0) {
+        const fileExt = foto.name.split('.').pop()
+        const fileName = `${transferenciaId}_reabertura_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('fotos_pendencias')
+          .upload(fileName, foto)
+        
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(fileName)
+          fotosUrls.push(publicUrlData.publicUrl)
+        }
       }
     }
+    
+    const fotosStr = fotosUrls.join(',')
 
     // Atualizar Transferência
     let novaObservacao = currTransfer.observacao_pendencia 

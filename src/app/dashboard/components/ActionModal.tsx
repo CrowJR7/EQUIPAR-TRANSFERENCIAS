@@ -194,7 +194,8 @@ export function ActionModal({
 
           if (actionType === 'resolver_pendencia' || actionType === 'recusar_resolucao' || actionType === 'aceitar_resolucao') {
             const obs = formData.get('mensagem') as string
-            const foto = formData.get('foto') as File
+            const fotos = formData.getAll('foto') as File[]
+            const hasFoto = fotos.some(f => f.size > 0)
             const tipoAcao = formData.get('tipoAcao') as string
             
             if (actionType === 'recusar_resolucao' && (!obs || obs.trim() === '')) {
@@ -209,8 +210,8 @@ export function ActionModal({
               return
             }
 
-            if (actionType === 'resolver_pendencia' && (!obs || obs.trim() === '') && (!foto || foto.size === 0)) {
-              toast.error('Você deve fornecer uma anotação ou uma foto para resolver a pendência.', { id: 'resolver_err' })
+            if (actionType === 'resolver_pendencia' && (!obs || obs.trim() === '') && !hasFoto) {
+              toast.error('Você deve fornecer uma anotação ou pelo menos uma foto para resolver a pendência.', { id: 'resolver_err' })
               setIsSubmitting(false)
               return
             }
@@ -522,7 +523,7 @@ export function ActionModal({
                 <ImageIcon className="w-4 h-4" />
                 Foto da Pendência <span className="text-slate-400 font-normal">(Opcional)</span>
               </label>
-              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
           
@@ -541,7 +542,7 @@ export function ActionModal({
                 <ImageIcon className="w-4 h-4" />
                 Foto (Opcional)
               </label>
-              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-600/10 file:text-red-600 hover:file:bg-red-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-600/10 file:text-red-600 hover:file:bg-red-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
 
@@ -560,7 +561,7 @@ export function ActionModal({
                 <ImageIcon className="w-4 h-4" />
                 Foto (Opcional)
               </label>
-              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-600/10 file:text-emerald-600 hover:file:bg-emerald-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-600/10 file:text-emerald-600 hover:file:bg-emerald-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
 
@@ -579,7 +580,7 @@ export function ActionModal({
                 <ImageIcon className="w-4 h-4" />
                 Foto (Opcional)
               </label>
-              <input type="file" name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-600/10 file:text-rose-600 hover:file:bg-rose-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-600/10 file:text-rose-600 hover:file:bg-rose-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
             </div>
           )}
           
