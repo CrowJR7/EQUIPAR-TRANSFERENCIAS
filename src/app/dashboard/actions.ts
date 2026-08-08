@@ -524,7 +524,7 @@ export async function adicionarHistoricoPendencia(formData: FormData) {
       nome_usuario: nomeFormatado,
       mensagem,
       fotos: fotosStr || null,
-      tipo_acao: tipoAcao === 'RECUSAR_RESOLUCAO' ? 'ATUALIZACAO' : tipoAcao
+      tipo_acao: (tipoAcao === 'RECUSAR_RESOLUCAO' || tipoAcao === 'ACEITAR_RESOLUCAO') ? 'ATUALIZACAO' : tipoAcao
     })
 
     if (histError) throw new Error(histError.message)
