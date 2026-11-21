@@ -1,0 +1,691 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Activity, AlertCircle, Check, Image as ImageIcon, XCircle, Trash2, Loader2, CheckCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { createClient } from '@/utils/supabase/client'
+import { CustomSelect } from './CustomSelect'
+import { resolverPendencia, editarTransferencia, cancelarTransferencia, excluirTransferencia, avancarSituacao, adicionarHistoricoPendencia, reabrirPendenciaTransferencia } from '../actions'
+
+interface ActionModalProps {
+  isOpen: boolean
+  actionType: 'separar' | 'enviar' | 'conferir' | 'resolver_pendencia' | 'enviar_mensagem' | 'recusar_resolucao' | 'aceitar_resolucao' | 'editar' | 'rastreamento' | 'cancelar' | 'excluir' | 'reabrir_pendencia' | null
+  transferId: string | null
+  onClose: () => void
+  enviando: any[]
+  recebendo: any[]
+  lojas: any[]
+  profile: any
+}
+
+export function ActionModal({
+  isOpen,
+  actionType,
+  transferId,
+  onClose,
+  enviando,
+  recebendo,
+  lojas,
+  profile
+}: ActionModalProps) {
+  const [conferirStatus, setConferirStatus] = useState<'ok' | 'pendencia'>('ok')
+  const [fotosPendencia, setFotosPendencia] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [historicoEventos, setHistoricoEventos] = useState<any[]>([])
+  const [isLoadingHistorico, setIsLoadingHistorico] = useState(false)
+  const [editOrigem, setEditOrigem] = useState('')
+  const [editDestino, setEditDestino] = useState('')
+  const [editTipo, setEditTipo] = useState('')
+  const [pendenciaAcao, setPendenciaAcao] = useState<'ATUALIZACAO' | 'RESOLUCAO_PARCIAL' | 'RESOLUCAO_TOTAL'>('RESOLUCAO_TOTAL')
+  const supabase = createClient()
+
+  const item = enviando.find(x => x.id === transferId) || recebendo.find(x => x.id === transferId)
+  const isAdm = profile?.role === 'admin'
+
+  useEffect(() => {
+    if (isOpen && transferId) {
+      // Reset states
+      setConferirStatus('ok')
+      setFotosPendencia([])
+      setPendenciaAcao('RESOLUCAO_TOTAL')
+      
+      if (actionType === 'editar' && item) {
+        setEditOrigem(item.origem_loja_id || '')
+        setEditDestino(item.destino_loja_id || '')
+        setEditTipo(item.tipo || '')
+      }
+
+      if (actionType === 'rastreamento') {
+        const fetchHist = async () => {
+          setIsLoadingHistorico(true)
+          try {
+            const { data: events, error } = await supabase
+              .from('transferencia_eventos')
+              .select('*, profiles(nome, lojas(nome))')
+              .eq('transferencia_id', transferId)
+              .order('created_at', { ascending: true })
+            
+            if (error) throw new Error(error.message)
+            setHistoricoEventos(events || [])
+          } catch (e) {
+            console.error('Erro detalhado no rastreamento:', e)
+            toast.error('Falha ao carregar rastro')
+          } finally {
+            setIsLoadingHistorico(false)
+          }
+        }
+        fetchHist()
+
+        const channel = supabase.channel(`rastreamento_${transferId}`)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'transferencia_eventos',
+            filter: `transferencia_id=eq.${transferId}`
+          }, async (payload) => {
+            // Need to fetch the profile data for this event because realtime doesn't join tables
+            const { data: fullEvent } = await supabase
+              .from('transferencia_eventos')
+              .select('*, profiles(nome, lojas(nome))')
+              .eq('id', payload.new.id)
+              .single()
+              
+            if (fullEvent) {
+              setHistoricoEventos(prev => [...prev, fullEvent])
+            }
+          })
+          .subscribe()
+
+        return () => {
+          supabase.removeChannel(channel)
+        }
+      }
+    }
+  }, [isOpen, transferId, actionType, item])
+
+  const handleClose = () => {
+    setFotosPendencia([])
+    setHistoricoEventos([])
+    setIsSubmitting(false)
+    onClose()
+  }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose()
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen])
+
+  if (!isOpen || !actionType || !transferId) return null
+
+  // Rastreamento View (Read Only)
+  if (actionType === 'rastreamento') {
+    return (
+      <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50 backdrop-blur-md animate-in fade-in" onClick={handleClose}>
+        <div className="bg-white/95 backdrop-blur-xl border border-white/20 rounded-[24px] p-8 w-full max-w-lg shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <Activity className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">Rastreabilidade</h3>
+              <p className="text-sm text-slate-500 font-medium">Histórico ponta-a-ponta</p>
+            </div>
+          </div>
+          
+          <div className="max-h-[60vh] overflow-y-auto pr-2">
+            {isLoadingHistorico ? (
+              <div className="text-center text-slate-500 py-10 animate-pulse">Carregando rastro...</div>
+            ) : historicoEventos.length === 0 ? (
+              <div className="text-center text-slate-500 py-10">Nenhum evento registrado.</div>
+            ) : (
+              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                {historicoEventos.map((evt, idx) => {
+                  return (
+                    <div key={evt.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                        <Check className="w-4 h-4" />
+                      </div>
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-1.5rem)] p-3 md:p-4 rounded-xl border border-slate-100 bg-white shadow-sm">
+                        <div className="flex flex-col gap-1 mb-2">
+                          <div className="font-bold text-slate-700 text-sm leading-tight">{evt.tipo_evento.replace(/_/g, ' ')}</div>
+                          <time className="text-xs text-slate-400 font-medium">{new Date(evt.created_at).toLocaleString()}</time>
+                        </div>
+                        <div className="text-slate-500 text-xs">
+                          Usuário: <span className="font-semibold text-slate-700">
+                            {evt.detalhes?.operador 
+                              ? evt.detalhes.operador 
+                              : (evt.profiles?.lojas?.nome || evt.profiles?.nome || 'Sistema').replace(/@.*/, '').toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          
+          <div className="pt-8 flex justify-end">
+            <button type="button" onClick={handleClose} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95">Fechar</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Formulário Dinâmico
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <h3 className="text-2xl font-display font-bold text-slate-800 mb-6 tracking-wide uppercase">
+          {actionType === 'separar' && 'Confirmar Separação'}
+          {actionType === 'enviar' && 'Registrar Envio'}
+          {actionType === 'conferir' && 'Conferir Mercadoria'}
+          {actionType === 'resolver_pendencia' && 'Resolver Pendência'}
+          {actionType === 'enviar_mensagem' && 'Nova Mensagem'}
+          {actionType === 'recusar_resolucao' && 'Recusar Resolução'}
+          {actionType === 'aceitar_resolucao' && 'Aceitar e Finalizar'}
+          {actionType === 'editar' && 'Editar Transferência'}
+          {actionType === 'cancelar' && 'Cancelar Transferência'}
+          {actionType === 'excluir' && 'Excluir Transferência'}
+          {actionType === 'reabrir_pendencia' && 'Reabrir com Pendência'}
+        </h3>
+        
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          const formData = new FormData(e.currentTarget)
+          if (!transferId || !actionType || isUploading) return
+          setIsSubmitting(true)
+
+          if (actionType === 'resolver_pendencia' || actionType === 'recusar_resolucao' || actionType === 'aceitar_resolucao' || actionType === 'enviar_mensagem') {
+            const obs = formData.get('mensagem') as string
+            const fotos = formData.getAll('foto') as File[]
+            const hasFoto = fotos.some(f => f.size > 0)
+            const tipoAcao = formData.get('tipoAcao') as string
+            
+            if (actionType === 'recusar_resolucao' && (!obs || obs.trim() === '')) {
+              toast.error('Você deve fornecer um motivo para a recusa.', { id: 'resolver_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            if (actionType === 'aceitar_resolucao' && (!obs || obs.trim() === '')) {
+              toast.error('Você deve fornecer uma anotação informando como foi resolvido.', { id: 'resolver_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            if (actionType === 'resolver_pendencia' && (!obs || obs.trim() === '') && !hasFoto) {
+              toast.error('Você deve fornecer uma anotação ou pelo menos uma foto para resolver a pendência.', { id: 'resolver_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            try {
+              toast.loading('Enviando...', { id: 'resolver' })
+              formData.append('transferenciaId', transferId)
+              const res = await adicionarHistoricoPendencia(formData)
+              if (!res.success) throw new Error(res.error)
+              toast.success(tipoAcao === 'RESOLUCAO_TOTAL' ? 'Resolução enviada!' : (tipoAcao === 'RECUSAR_RESOLUCAO' ? 'Recusa enviada!' : (tipoAcao === 'ACEITAR_RESOLUCAO' ? 'Transferência finalizada!' : 'Atualização enviada!')), { id: 'resolver' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'resolver' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+
+          if (actionType === 'reabrir_pendencia') {
+            const obs = formData.get('mensagem') as string
+            
+            if (!obs || obs.trim() === '') {
+              toast.error('Você deve fornecer o motivo da reabertura.', { id: 'reabrir_err' })
+              setIsSubmitting(false)
+              return
+            }
+
+            try {
+              toast.loading('Reabrindo transferência...', { id: 'reabrir' })
+              formData.append('transferenciaId', transferId)
+              const res = await reabrirPendenciaTransferencia(formData)
+              if (!res.success) throw new Error(res.error)
+              toast.success('Transferência reaberta com pendência!', { id: 'reabrir' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'reabrir' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+          
+          if (actionType === 'editar') {
+            try {
+              toast.loading('Salvando edição...', { id: 'editar' })
+              formData.append('id', transferId)
+              const res = await editarTransferencia(formData)
+              if (!res.success) throw new Error(res.error)
+              toast.success('Transferência editada!', { id: 'editar' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'editar' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+          
+          if (actionType === 'cancelar') {
+            try {
+              toast.loading('Cancelando...', { id: 'cancel' })
+              const res = await cancelarTransferencia(transferId)
+              if (!res.success) throw new Error(res.error)
+              toast.success('Cancelada!', { id: 'cancel' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'cancel' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+          
+          if (actionType === 'excluir') {
+            try {
+              toast.loading('Excluindo...', { id: 'delete' })
+              const res = await excluirTransferencia(transferId)
+              if (!res.success) throw new Error(res.error)
+              toast.success('Excluída!', { id: 'delete' })
+              handleClose()
+            } catch (e: any) {
+              toast.error('Erro: ' + e.message, { id: 'delete' })
+            } finally {
+              setIsSubmitting(false)
+            }
+            return
+          }
+
+          let dados: any = {}
+          if (actionType === 'separar') {
+            dados.separador = formData.get('separador')?.toString().trim()
+            const valorRaw = formData.get('valor')?.toString().trim()
+            if (valorRaw) {
+              const num = parseFloat(valorRaw)
+              if (!isNaN(num)) dados.valor = num
+            }
+          } else if (actionType === 'enviar') {
+            dados.motorista = formData.get('motorista')?.toString().trim()
+            const vols = formData.get('volumes')?.toString().trim()
+            if (vols) {
+              const numVols = parseInt(vols, 10)
+              if (!isNaN(numVols)) dados.volumes = numVols
+            }
+          } else if (actionType === 'conferir') {
+            dados.conferente = formData.get('conferente')?.toString().trim()
+            dados.tudoOk = conferirStatus === 'ok'
+            if (!dados.tudoOk) {
+              dados.observacao = formData.get('observacao')?.toString().trim()
+            }
+          }
+
+          try {
+            toast.loading('Processando...', { id: 'acao' })
+            let uploadedUrls: string[] = []
+            if (actionType === 'conferir' && conferirStatus === 'pendencia' && fotosPendencia.length > 0) {
+              setIsUploading(true)
+              toast.loading('Enviando fotos...', { id: 'acao' })
+              for (const file of fotosPendencia) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
+                const { data, error } = await supabase.storage.from('fotos_pendencias').upload(fileName, file)
+                if (error) {
+                  throw new Error('Erro ao fazer upload da foto. Verifique se o bucket "fotos_pendencias" existe e é público no Supabase.')
+                }
+                if (data) {
+                  const { data: publicUrlData } = supabase.storage.from('fotos_pendencias').getPublicUrl(data.path)
+                  uploadedUrls.push(publicUrlData.publicUrl)
+                }
+              }
+            }
+            
+            if (uploadedUrls.length > 0) {
+              dados.observacao = dados.observacao + " ||FOTOS|| " + uploadedUrls.join(',')
+            }
+
+            const result = await avancarSituacao(transferId, actionType as any, dados)
+            if (result && result.error) {
+              throw new Error(result.error)
+            }
+            toast.success('Situação atualizada!', { id: 'acao' })
+            handleClose()
+          } catch (e: any) {
+            toast.error('Erro: ' + e.message, { id: 'acao' })
+          } finally {
+            setIsUploading(false)
+            setIsSubmitting(false)
+          }
+        }} className="space-y-5 font-sans">
+
+          {actionType === 'separar' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Separador</label>
+                <input required type="text" name="separador" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem separou?" />
+              </div>
+              {item?.tipo === 'VENDA' && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Valor da Nota Final (R$)</label>
+                  <input required type="number" step="0.01" inputMode="decimal" name="valor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 1500.50" />
+                </div>
+              )}
+            </>
+          )}
+
+          {actionType === 'enviar' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Motorista</label>
+                <input required type="text" name="motorista" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem está levando?" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1 mt-3">Quantos Volumes?</label>
+                <input required type="number" inputMode="numeric" name="volumes" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Ex: 3" />
+              </div>
+            </>
+          )}
+
+          {actionType === 'conferir' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Conferente</label>
+                <input required type="text" name="conferente" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Quem está conferindo?" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Status da Mercadoria</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 py-3 px-4 rounded-xl flex-1 transition-all">
+                    <input type="radio" name="status" value="ok" checked={conferirStatus === 'ok'} onChange={() => setConferirStatus('ok')} className="accent-blue-600 w-4 h-4" />
+                    <span className="text-slate-800 text-sm font-medium">Tudo Certo</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 py-3 px-4 rounded-xl flex-1 transition-all">
+                    <input type="radio" name="status" value="pendencia" checked={conferirStatus === 'pendencia'} onChange={() => setConferirStatus('pendencia')} className="accent-red-600 w-4 h-4" />
+                    <span className="text-slate-800 text-sm font-medium">Com Pendência</span>
+                  </label>
+                </div>
+              </div>
+              {conferirStatus === 'pendencia' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1 text-red-600">Qual foi a pendência?</label>
+                    <textarea required name="observacao" rows={3} className="w-full bg-red-50 border border-red-200 rounded-xl p-3.5 text-red-900 font-medium focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all placeholder:text-red-300" placeholder="Ex: Faltou 2 caixas de produto X..."></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2 mt-2">
+                      <ImageIcon className="w-4 h-4" />
+                      Fotos da Pendência (Opcional)
+                    </label>
+                    <input type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+                      if (e.target.files) {
+                        setFotosPendencia(Array.from(e.target.files))
+                      }
+                    }} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-100 file:text-red-700 hover:file:bg-red-200 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {actionType === 'resolver_pendencia' && (
+            <div>
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3 text-blue-800 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p>Adicione uma atualização à pendência, informe se foi parcialmente resolvida ou feche a pendência totalmente.</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-bold text-slate-700 mb-2">O que você deseja fazer?</label>
+                <div className="space-y-2">
+                  <input type="hidden" name="tipoAcao" value={pendenciaAcao} />
+
+                  <div 
+                    onClick={() => setPendenciaAcao('RESOLUCAO_PARCIAL')}
+                    className={`cursor-pointer w-full flex items-center rounded-lg border p-3 shadow-sm transition-all ${
+                      pendenciaAcao === 'RESOLUCAO_PARCIAL' 
+                        ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' 
+                        : 'border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 shrink-0 rounded-full border-2 mr-3 flex items-center justify-center transition-colors ${
+                      pendenciaAcao === 'RESOLUCAO_PARCIAL'
+                        ? 'border-amber-600 bg-amber-600'
+                        : 'border-slate-300'
+                    }`}>
+                      <Check className={`w-3 h-3 text-white transition-opacity ${pendenciaAcao === 'RESOLUCAO_PARCIAL' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="block text-sm font-bold text-slate-900 leading-tight">Resolução Parcial</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5">Encontrou apenas uma parte? A nota continuará pendente.</span>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setPendenciaAcao('RESOLUCAO_TOTAL')}
+                    className={`cursor-pointer w-full flex items-center rounded-lg border p-3 shadow-sm transition-all ${
+                      pendenciaAcao === 'RESOLUCAO_TOTAL' 
+                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500' 
+                        : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 shrink-0 rounded-full border-2 mr-3 flex items-center justify-center transition-colors ${
+                      pendenciaAcao === 'RESOLUCAO_TOTAL'
+                        ? 'border-emerald-600 bg-emerald-600'
+                        : 'border-slate-300'
+                    }`}>
+                      <Check className={`w-3 h-3 text-white transition-opacity ${pendenciaAcao === 'RESOLUCAO_TOTAL' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="block text-sm font-bold text-slate-900 leading-tight">Resolução Total</span>
+                      <span className="text-[11px] text-slate-500 mt-0.5 font-semibold">Tudo resolvido! A nota será fechada.</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mensagem <span className="text-slate-400 font-normal">(Opcional se enviar foto)</span></label>
+                <textarea 
+                  name="mensagem" 
+                  rows={3} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" 
+                  placeholder="Ex: Encontrado as 2 caixas faltando, seguem na próxima viagem."
+                ></textarea>
+              </div>
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto da Pendência <span className="text-slate-400 font-normal">(Opcional)</span>
+              </label>
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+
+          {actionType === 'enviar_mensagem' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="ATUALIZACAO" />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Nova Mensagem:</strong> Envie uma atualização ou pergunta. A pendência continuará aberta para respostas.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mensagem</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all hover:bg-slate-100/50" placeholder="Digite sua mensagem..."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600/10 file:text-blue-600 hover:file:bg-blue-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+          
+          {actionType === 'recusar_resolucao' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="RECUSAR_RESOLUCAO" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Recusar Resolução:</strong> A nota voltará para PENDÊNCIA e a loja de origem será notificada. Explique o motivo abaixo.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo da Recusa</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Ainda faltam 2 itens que não foram enviados."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-600/10 file:text-red-600 hover:file:bg-red-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+
+          {actionType === 'aceitar_resolucao' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="ACEITAR_RESOLUCAO" />
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4 text-sm text-emerald-800 flex gap-3">
+                <CheckCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Aceitar Resolução:</strong> A nota será CONCLUÍDA. Adicione uma anotação final informando como a situação foi encerrada.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Anotação Final</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Produto retirado do estoque e transferência finalizada."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-600/10 file:text-emerald-600 hover:file:bg-emerald-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+
+          {actionType === 'reabrir_pendencia' && (
+            <div className="space-y-4">
+              <input type="hidden" name="tipoAcao" value="REABERTURA" />
+              <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-4 text-sm text-rose-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Reabrir Transferência:</strong> A nota deixará de ser Concluída e voltará para PENDÊNCIA. A loja de origem será notificada. Informe o motivo abaixo.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo da Reabertura</label>
+                <textarea required name="mensagem" rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all hover:bg-slate-100/50" placeholder="Ex: Conferimos o estoque e faltou 1 caixa."></textarea>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Foto (Opcional)
+              </label>
+              <input type="file" multiple name="foto" accept="image/*" capture="environment" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-600/10 file:text-rose-600 hover:file:bg-rose-600/20 transition-colors border border-slate-200 rounded-xl bg-slate-50 p-2 cursor-pointer" />
+            </div>
+          )}
+          
+          {actionType === 'editar' && (
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-sm text-amber-800 flex gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p><strong>Atenção:</strong> Você pode editar os dados básicos da transferência. Alterações ficarão registradas no rastreamento.</p>
+              </div>
+              {isAdm && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Loja de Origem</label>
+                      <CustomSelect name="origem_loja_id" options={lojas} value={editOrigem} onChange={setEditOrigem} placeholder="Origem" required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Loja de Destino</label>
+                      <CustomSelect name="destino_loja_id" options={lojas} value={editDestino} onChange={setEditDestino} placeholder="Destino" required />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Número NF</label>
+                      <input defaultValue={item?.numero_nota} required type="number" name="numero_nota" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
+                      <CustomSelect 
+                        name="tipo" 
+                        value={editTipo} 
+                        onChange={setEditTipo}
+                        placeholder="Selecione o tipo..."
+                        options={[
+                          { id: 'INTERNA', nome: 'Abastecimento (Interna)' },
+                          { id: 'COMPRA', nome: 'Compra' },
+                          { id: 'VENDA', nome: 'Venda' },
+                          { id: 'MOD_1', nome: 'MOD 1' }
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Quantos Volumes?</label>
+                  <input defaultValue={item?.volumes || ''} type="number" inputMode="numeric" name="volumes" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Valor Final (R$)</label>
+                  <input defaultValue={item?.valor || ''} type="number" step="0.01" inputMode="decimal" name="valor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" />
+                </div>
+              </div>
+              
+              {((isAdm ? editTipo : item?.tipo) === 'COMPRA') && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Fornecedor</label>
+                  <input defaultValue={item?.fornecedor || ''} type="text" name="fornecedor" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50" placeholder="Nome do fornecedor" />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Observações</label>
+                <textarea defaultValue={item?.observacao_pendencia || ''} name="observacao" rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-800 font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all hover:bg-slate-100/50"></textarea>
+              </div>
+            </div>
+          )}
+          
+          {actionType === 'cancelar' && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm text-orange-800 flex gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 text-orange-600" />
+              <p>Tem certeza que deseja <strong>CANCELAR</strong> esta transferência? Ela não será apagada, apenas ficará registrada como Cancelada no histórico.</p>
+            </div>
+          )}
+          
+          {actionType === 'excluir' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 flex gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+              <p>Tem certeza que deseja <strong>EXCLUIR DEFINITIVAMENTE</strong> esta transferência? Essa ação apagará a transferência e todo o seu histórico do banco de dados e <strong>não pode ser desfeita</strong>.</p>
+            </div>
+          )}
+
+          <div className="pt-6 flex justify-end gap-3">
+            <button type="button" disabled={isSubmitting || isUploading} onClick={handleClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all active:scale-95 disabled:opacity-50">Cancelar</button>
+            <button type="submit" disabled={isSubmitting || isUploading} className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 text-white disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-2 ${actionType === 'conferir' ? (conferirStatus === 'ok' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-secondary hover:bg-secondary/90') : actionType === 'cancelar' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'excluir' ? 'bg-red-600 hover:bg-red-700' : actionType === 'aceitar_resolucao' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-primary hover:bg-primary/90'}`}>
+              {isSubmitting || isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Enviando...</span>
+                </>
+              ) : actionType === 'cancelar' ? 'Sim, Cancelar' : actionType === 'excluir' ? 'Sim, Excluir' : actionType === 'aceitar_resolucao' ? 'Aceitar e Finalizar' : 'Confirmar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
